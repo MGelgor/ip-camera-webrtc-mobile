@@ -36,19 +36,16 @@ Amaç:
 rtsp://${CAMERA_USER}:${CAMERA_PASSWORD}@${CAMERA_IP}:${CAMERA_PORT}${CAMERA_RTSP_MAIN_PATH}
 ```
 
-Gerçek değerler `.env` içinde tutulur. Örnek dosyada gerçek şifre veya şirket içi IP bulunmamalıdır.
+Gerçek değerler `.env` içinde tutulur. Bu dosya repoya girmez.
 
 ## Ortam Değişkenleri
 
-Bu klasörün kökünde iki ortam dosyası mantığı var:
+Bu klasörün kökünde gerçek çalışma değerleri için bir `.env` dosyası beklenir.
 
-- `.env.example`
-  - Sadece örnek alanları gösterir
-  - Gerçek şifre içermez
-  - Repoya konabilir
 - `.env`
   - Gerçek çalışma değerlerini tutar
-  - Repoya konmamalıdır
+  - Repoya konmaz
+  - Elle oluşturulur
 
 Bu dosyalarda şu bilgiler bulunur:
 - Kamera IP ve portu
@@ -67,7 +64,7 @@ Bu dosyalarda şu bilgiler bulunur:
 - Native `react-native-webrtc` yolu tekrar değerlendirilecek
 - WebView yaklaşımı üretim kararı olacaksa hata/yüklenme/tam ekran davranışları güçlendirilecek
 
-Gerçek `.env` dosyası repoya eklenmemelidir.
+Gerçek `.env` dosyası repoya eklenmez.
 
 ## Gateway'i Calistirma
 
