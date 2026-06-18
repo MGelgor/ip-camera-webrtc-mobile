@@ -7,7 +7,7 @@ export function getGo2RtcDefaults(camera: CameraConfig) {
   // The active go2rtc gateway now runs on the smart intercom device instead of
   // the developer machine. Both emulator and desktop previews should point to
   // that fixed LAN address while we validate the gateway phase.
-  const host = camera.gatewayHost ?? (Platform.OS === "android" ? "10.1.1.3" : "10.1.1.3");
+  const host = camera.gatewayHost ?? (Platform.OS === "android" ? "10.0.2.2" : "localhost");
   const encodedStreamName = encodeURIComponent(camera.streamName);
 
   return {
@@ -18,7 +18,7 @@ export function getGo2RtcDefaults(camera: CameraConfig) {
     // Stable preview endpoint. go2rtc already provides a browser player that
     // can play our RTSP camera through its own WebRTC/MSE/HLS pipeline.
     // In the Android emulator, 10.0.2.2 means "the Mac that runs the emulator".
-    playerUrl: `http://${host}:1984/stream.html?src=${encodedStreamName}`,
+    playerUrl: `http://${host}:1984/stream.html?src=${encodedStreamName}&mode=mse`,
     streamStatusUrl: `http://${host}:1984/api/streams`,
     requestHeaders: camera.gatewayAuthHeader ? { Authorization: camera.gatewayAuthHeader } : undefined,
 
