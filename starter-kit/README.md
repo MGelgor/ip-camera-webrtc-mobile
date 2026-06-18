@@ -26,6 +26,9 @@ Amaç:
 - Kamera RTSP adresi VLC ile doğrulandı
 - RTSP kaynağı `go2rtc` içine taşındı
 - `go2rtc` içinde `ofis_kamera` stream'i çalışıyor
+- Multitek Android gateway cihazinda `go2rtc` ARM64 binary calistirildi
+- Android gateway uzerinde HLS playlist ve MP4/fMP4 endpoint yanitlari dogrulandi
+- Android gateway uzerinde reboot sonrasi root-level autostart dogrulandi
 - Tarayıcıda `go2rtc` player ile görüntü alındı
 - Android emülatörde mobil uygulama içinde görüntü alındı
 - Signaling server WebSocket bağlantısı kabul ediyor

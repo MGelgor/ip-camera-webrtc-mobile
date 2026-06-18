@@ -18,6 +18,7 @@ starter-kit/mobile/web-build/
 starter-kit/mobile/android/
 starter-kit/mobile/ios/
 starter-kit/mobile/.kotlin/
+starter-kit/gateway/android-autostart/.gradle/
 
 # logs / runtime
 *.log

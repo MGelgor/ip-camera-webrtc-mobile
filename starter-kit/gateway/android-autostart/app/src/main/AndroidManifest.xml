@@ -20,6 +20,11 @@
             </intent-filter>
         </activity>
 
+        <service
+            android:name=".GatewayWatchdogService"
+            android:enabled="true"
+            android:exported="false" />
+
         <receiver
             android:name=".BootReceiver"
             android:enabled="true"

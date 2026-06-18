@@ -10,7 +10,7 @@ android {
   defaultConfig {
     applicationId = "com.multitek.gatewayautostart"
     minSdk = 23
-    targetSdk = 34
+    targetSdk = 25
     versionCode = 1
     versionName = "1.0"
   }

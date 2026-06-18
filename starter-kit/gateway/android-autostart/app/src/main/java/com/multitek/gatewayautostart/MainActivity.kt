@@ -21,14 +21,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     val subtitle = TextView(this).apply {
-      text = "Boot sonrasinda /data/local/tmp/staj-gateway/start-go2rtc-device.sh komutunu calistirir."
+      text = "Boot sonrasinda gateway watchdog servisini baslatir ve go2rtc surecini izler."
       textSize = 15f
     }
 
     val action = Button(this).apply {
       text = "Simdi Baslat"
       setOnClickListener {
-        GatewayStarter.startGateway()
+        GatewayServiceController.start(this@MainActivity)
       }
     }
 

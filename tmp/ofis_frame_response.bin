@@ -1,0 +1,7 @@
+HTTP/1.0 500 Internal Server Error
+Content-Type: text/plain; charset=utf-8
+X-Content-Type-Options: nosniff
+Date: Thu, 18 Jun 2026 12:26:10 GMT
+Content-Length: 51
+
+exec: "ffmpeg": executable file not found in $PATH

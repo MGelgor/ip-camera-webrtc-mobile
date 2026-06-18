@@ -11,7 +11,7 @@ class BootReceiver : BroadcastReceiver() {
       action == Intent.ACTION_BOOT_COMPLETED ||
       action == Intent.ACTION_MY_PACKAGE_REPLACED
     ) {
-      GatewayStarter.startGateway()
+      GatewayServiceController.start(context)
     }
   }
 }

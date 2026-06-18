@@ -39,11 +39,47 @@ IP Kamera
 - [x] Android tabanli akilli diyafonda ARM64 `go2rtc` binary'sini calistir
 - [x] Android gateway icin start/status/stop script'lerini ekle
 - [x] go2rtc API authentication ekle
+- [x] Android gateway uzerinde `10.1.1.3:5555` ADB baglantisini dogrula
+- [x] Android gateway uzerinde `/data/local/tmp/staj-gateway/start-go2rtc-device.sh` ile go2rtc baslat
+- [x] Android gateway uzerinde `1984` API ve `8555` WebRTC portlarinin dinledigini dogrula
+- [x] Android gateway uzerinde `ofis_kamera` RTSP producer bilgisini dogrula
+- [x] Android gateway uzerinde HLS playlist ve MP4/fMP4 endpoint yanitlarini dogrula
 - [ ] sub stream path'i bulunursa `ofis_kamera_sub` olarak ekle
 - [x] gateway'i Mac yerine kamera lokasyonundaki akilli diyafon uzerinde calistir
 - [x] Android gateway icin cihaz ici start script uret
 - [x] Android gateway autostart helper APK iskeleti ekle
-- [ ] Android gateway acilisinda otomatik baslama mekanizmasini cihazda dogrula
+- [x] Android gateway autostart helper APK'yi foreground service/watchdog olarak gelistir
+- [x] Android gateway autostart helper APK'yi cihaza kur
+- [x] Android gateway autostart helper APK foreground service olarak ayakta kaliyor mu dogrula
+- [x] Multitek cihazda normal APK kullanicisinin `su` calistiramadigini dogrula
+- [x] Multitek cihazda APK kullanicisiyle baslayan go2rtc'nin `:1984` bind edemedigini dogrula
+- [x] Android gateway icin root-level vendor boot script autostart mekanizmasi ekle
+- [x] Android gateway acilisinda otomatik baslama mekanizmasini cihazda dogrula
+
+### Gateway Test Notlari
+
+- Kamera web arayuzu `viewer_index.asp` Flash eklentisi istiyor. Bu sayfa dogrulama icin
+  referans alinmayacak.
+- Dogru kaynak VLC'de calisan RTSP adresidir.
+- Android gateway'in stock browser'i `stream.html?src=ofis_kamera` sayfasinda siyah ekran
+  gosterebilir. Bu, go2rtc'nin RTSP alamadigi anlamina gelmez; eski Android tarayicisinin
+  WebRTC/MSE/HLS player destegi kisitli olabilir.
+- JPEG snapshot endpoint'i Android gateway'de `ffmpeg` gerektirdigi icin su an 500 donebilir.
+  Bu beklenen bir durumdur; final hedef RTSP/H.264 akisini WebRTC/HLS/fMP4 olarak servis etmektir.
+- 2026-06-18 saha testinde `api/stream.m3u8?src=ofis_kamera` ve
+  `api/stream.mp4?src=ofis_kamera` yanit verdi. Bu, gateway'in kameradan H.264 aldigini ve
+  servis edebildigini dogrular.
+- 2026-06-18 saha testinde helper APK cihaza kuruldu ve foreground service olarak ayakta
+  kaldi. Ancak cihazdaki `su` sadece `root:shell` tarafindan calistirilabildigi icin normal APK
+  kullanicisi root-level go2rtc restart yapamadi.
+- APK kullanicisi start script'i dogrudan calistirdiginde go2rtc process'i acilsa da `:1984`
+  API portunda `permission denied` alindi. Bu nedenle root-level autostart icin init/vendor boot
+  mekanizmasi gerekiyor.
+- 2026-06-18 saha testinde `/system/bin/starapp.sh` yedeklenip sonuna
+  `staj-gateway-autostart` hook'u eklendi. Hook, boot sonrasinda 20 saniye bekleyip
+  `/data/local/tmp/staj-gateway/start-go2rtc-root.sh` calistiriyor.
+- Reboot testi basarili: `boot-hook.log` boot hook'unu, `autostart.log` yeni go2rtc PID'ini
+  kaydetti. `http://10.1.1.3:1984` reboot sonrasinda `401 Unauthorized` dondu.
 
 ### Signaling Server
 

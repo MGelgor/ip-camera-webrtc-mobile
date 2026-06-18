@@ -27,6 +27,75 @@ Bu adres VLC ile calistigi icin artik gateway tarafina tasinabilir.
 - Kamera sifresi `go2rtc.yaml` icinde duz metin olarak tutulmuyor
 - go2rtc API basic auth aktif edildi
 - Tarayici ve mobil WebView bu stream'i izleyebiliyor
+- Multitek Android gateway cihazinda `go2rtc` ARM64 binary calistirildi
+- Android gateway uzerinde `1984` API ve `8555` WebRTC portlari dinliyor
+- Android gateway uzerinde `ofis_kamera` RTSP producer olarak gorunuyor
+- Android gateway uzerinde HLS playlist ve MP4/fMP4 endpoint yanitlari dogrulandi
+- Android gateway uzerinde root-level boot autostart dogrulandi
+
+## Android Saha Test Notlari
+
+Multitek cihazdaki kamera web arayuzu Flash tabanli viewer kullaniyor olabilir. Bu nedenle
+`viewer_index.asp` sayfasinda Flash hatasi alinmasi bu mimari icin bloklayici degildir.
+Dogru referans, VLC'de calisan RTSP adresidir.
+
+Android gateway'in kendi stock browser'i `stream.html?src=ofis_kamera` sayfasinda siyah ekran
+gosterebilir. Bu durumda once go2rtc API kontrol edilmelidir:
+
+```text
+http://127.0.0.1:1984/api/streams
+http://127.0.0.1:1984/api/stream.m3u8?src=ofis_kamera
+http://127.0.0.1:1984/api/stream.mp4?src=ofis_kamera
+```
+
+`api/streams` icinde `ofis_kamera` altinda RTSP producer ve H.264 video gorunuyorsa kamera
+baglantisi vardir. Siyah ekran buyuk ihtimalle cihazdaki eski tarayicinin WebRTC/MSE/HLS
+oynatma destegiyle ilgilidir.
+
+JPEG snapshot endpoint'i Android gateway uzerinde `ffmpeg` gerektirebilir. Cihazda `ffmpeg`
+yoksa `api/frame.jpeg?src=ofis_kamera` 500 donebilir; bu RTSP/H.264 akisinin calismadigi
+anlamina gelmez.
+
+## Android Root Autostart
+
+Multitek cihazda normal APK kullanicisi `su` calistiramadigi ve app-user olarak baslayan
+go2rtc `:1984` portunu acamadigi icin kalici baslatma root-level vendor hook ile yapilir.
+
+Kurulum script'i:
+
+```bash
+./install-root-autostart-android.sh
+```
+
+Bu script:
+
+1. `/data/local/tmp/staj-gateway/start-go2rtc-root.sh` wrapper'ini cihaza kopyalar
+2. wrapper'i test eder
+3. `/system` partition'ini gecici olarak read-write yapar
+4. `/system/bin/starapp.sh` dosyasini `/system/bin/starapp.sh.staj.bak` olarak yedekler
+5. `starapp.sh` sonuna `staj-gateway-autostart` hook'u ekler
+6. `/system` partition'ini tekrar read-only yapar
+
+Boot hook su isi yapar:
+
+```text
+sleep 20
+/data/local/tmp/staj-gateway/start-go2rtc-root.sh
+```
+
+Wrapper idempotent calisir: PID dosyasindaki process halen go2rtc ise yeni process acmaz.
+
+Kontrol dosyalari:
+
+```text
+/data/local/tmp/staj-gateway/boot-hook.log
+/data/local/tmp/staj-gateway/autostart.log
+/data/local/tmp/staj-gateway/go2rtc.log
+/data/local/tmp/staj-gateway/go2rtc.pid
+```
+
+2026-06-18 reboot testinde hook basariyla calisti ve `http://10.1.1.3:1984` boot sonrasinda
+`401 Unauthorized` dondu.
 
 ## Eksik Olanlar
 
@@ -60,11 +129,10 @@ Bu alanda `GO2RTC_API_USERNAME` ve `GO2RTC_API_PASSWORD` ile basic auth aktiftir
 
 ## Bu klasorde sonraki adim
 
-1. RTSP kaynagini sabitle
-2. Android reboot sonrasinda otomatik baslatma mekanizmasi ekle
-3. Sub stream varsa onu da ekle
-4. Public TURN sunucusunu bagla
-5. WebRTC tarafini native mobil uygulama ile tekrar test et
+1. Fiziksel Android telefonu ayni Wi-Fi uzerinde gateway'e bagla
+2. Sub stream varsa onu da ekle
+3. Public TURN sunucusunu bagla
+4. WebRTC tarafini native mobil uygulama ile tekrar test et
 
 ## Calistirma
 
