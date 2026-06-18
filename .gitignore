@@ -1,0 +1,37 @@
+# macOS
+.DS_Store
+
+# local env / secrets
+.env
+.env.*
+!*.example
+starter-kit/.env
+starter-kit/.env.*
+!starter-kit/.env.example
+
+# node / build artifacts
+node_modules/
+starter-kit/mobile/node_modules/
+starter-kit/mobile/.expo/
+starter-kit/mobile/dist/
+starter-kit/mobile/web-build/
+starter-kit/mobile/android/
+starter-kit/mobile/ios/
+starter-kit/mobile/.kotlin/
+
+# logs / runtime
+*.log
+*.pid
+starter-kit/server/signaling.log
+starter-kit/server/signaling.pid
+
+# generated certs
+*.pem
+starter-kit/server/certs/
+
+# temporary screenshots and local artifacts
+.tmp-*
+*.tmp
+
+# local reference docs not for repo
+ip_kamera_webrtc_mobil_1 (1).pdf

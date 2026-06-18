@@ -1,0 +1,35 @@
+# go2rtc için örnek başlangıç yapılandırması.
+# Bu dosya, kameradan gelen RTSP akışını alır ve daha sonra WebRTC ile izlenebilir hale getirir.
+#
+# Elimizde şu an çalışan ana RTSP kaynağı var.
+# Bu URL, .env dosyasındaki parçalardan üretilir.
+# Böylece kamera şifresi bu YAML içinde düz metin olarak tutulmaz.
+
+# API arayüzü.
+# Buradan servis durumunu kontrol edebilir, akışları listeleyebilir ve test yapabilirsin.
+api:
+  listen: ":1984"
+  username: "${GO2RTC_API_USERNAME}"
+  password: "${GO2RTC_API_PASSWORD}"
+
+# Streams bölümü, kameranın hangi adresten okunacağını tanımlar.
+# Aşağıdaki örnekte "ofis_kamera" isimli akış, RTSP adresinden geliyor.
+streams:
+  # Main stream, VLC'de çalıştığı doğrulanan akış.
+  # go2rtc bu değeri environment'tan genişletebilir.
+  ofis_kamera: "rtsp://${CAMERA_USER}:${CAMERA_PASSWORD}@${CAMERA_IP}:${CAMERA_PORT}${CAMERA_RTSP_MAIN_PATH}"
+
+  # Sub stream daha sonra ayrıca bulunursa buraya eklenebilir.
+  # ofis_kamera_sub: "rtsp://${CAMERA_USER}:${CAMERA_PASSWORD}@${CAMERA_IP}:${CAMERA_PORT}${CAMERA_RTSP_SUB_PATH}"
+
+# WebRTC bölümü, tarayıcı ve mobil cihazların bağlanacağı yayın yüzünü tanımlar.
+# ICE server bilgisi burada verilir.
+webrtc:
+  listen: ":8555"
+  ice_servers:
+    - urls:
+        - "${STUN_URL}"
+    - urls:
+        - "${TURN_URL}"
+      username: "${TURN_USER}"
+      credential: "${TURN_PASSWORD}"

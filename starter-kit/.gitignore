@@ -1,0 +1,16 @@
+# Node tarafı
+node_modules/
+dist/
+build/
+
+# React Native / Expo tarafı
+.expo/
+.expo-shared/
+
+# Ortam değişkenleri
+.env
+.env.*
+!*.example
+
+# Sistem dosyaları
+.DS_Store

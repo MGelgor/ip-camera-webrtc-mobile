@@ -1,0 +1,13 @@
+services:
+  coturn:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: starter-kit-coturn
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    ports:
+      - "${TURN_PORT:-3478}:${TURN_PORT:-3478}/tcp"
+      - "${TURN_PORT:-3478}:${TURN_PORT:-3478}/udp"
+      - "${TURN_MIN_PORT:-49160}-${TURN_MAX_PORT:-49200}:${TURN_MIN_PORT:-49160}-${TURN_MAX_PORT:-49200}/udp"

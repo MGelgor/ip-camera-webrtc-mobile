@@ -1,0 +1,30 @@
+# TURN icin temel coturn config.
+# Bu dosya docker container acilirken .env degiskenleri ile doldurulur.
+
+listening-port=${TURN_PORT}
+listening-ip=0.0.0.0
+
+# Public IP'li VPS uzerinde relay icin dis IP'yi acik veriyoruz.
+external-ip=${TURN_PUBLIC_IP}
+relay-ip=${TURN_PUBLIC_IP}
+
+# Kimlik dogrulama aktif.
+fingerprint
+lt-cred-mech
+realm=${TURN_REALM}
+server-name=${TURN_SERVER_NAME}
+user=${TURN_USER}:${TURN_PASSWORD}
+
+# Relay port araligi.
+min-port=${TURN_MIN_PORT}
+max-port=${TURN_MAX_PORT}
+
+# Daha guvenli ve sade baslangic ayarlari.
+no-cli
+no-loopback-peers
+no-multicast-peers
+no-tls
+no-dtls
+stale-nonce=600
+log-file=stdout
+simple-log
