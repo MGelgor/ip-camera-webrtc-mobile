@@ -8,6 +8,8 @@ Bu klasor, WebRTC baglantisindan once taraflar arasindaki mesajlari tasir.
 - Oda bilgisi listeler
 - WebSocket uzerinden baglanti kabul eder
 - `join`, `leave`, `offer`, `answer`, `ice-candidate` mesajlarini relaye eder
+- temel rate-limit uygular
+- maskeli baglanti loglari yazar
 
 ## HTTP Uç Noktalari
 
@@ -61,6 +63,9 @@ Cunku native `react-native-webrtc` denemesi Android emulator tarafinda native cr
 - `SIGNALING_TLS_CERT_PATH`
 - `SIGNALING_TLS_KEY_PATH`
   - ikisi de doluysa server `https` ve `wss` olarak ayaga kalkar
+- `SIGNALING_RATE_LIMIT_WINDOW_MS`
+- `SIGNALING_RATE_LIMIT_MAX_REQUESTS`
+  - HTTP ve WebSocket girisleri icin basit IP bazli oran siniri uygular
 
 ## Yardimci Scriptler
 

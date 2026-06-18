@@ -44,7 +44,8 @@ durumlarinda bu katman kritik olur.
 
 ## Kurulum
 
-1. `starter-kit/.env` dosyasini elle olustur veya mevcut dosyada su alanlari doldur:
+1. `starter-kit/.env.example` dosyasini `starter-kit/.env` olarak kopyala
+2. Su alanlari doldur:
 
 ```text
 TURN_URL
@@ -58,19 +59,19 @@ TURN_MIN_PORT
 TURN_MAX_PORT
 ```
 
-2. Linux VPS uzerinde bu klasore gel:
+3. Linux VPS uzerinde bu klasore gel:
 
 ```bash
 cd starter-kit/turn
 ```
 
-3. Container'i build edip baslat:
+4. Container'i build edip baslat:
 
 ```bash
 docker compose up -d --build
 ```
 
-4. Loglari izle:
+5. Loglari izle:
 
 ```bash
 docker compose logs -f

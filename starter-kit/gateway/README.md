@@ -119,9 +119,33 @@ Android cihaz tarafinda kullanilan calisma klasoru:
 /data/local/tmp/staj-gateway
 ```
 
+Bu script artik cihaz icinde su kalici komutu da uretir:
+
+```text
+/data/local/tmp/staj-gateway/start-go2rtc-device.sh
+```
+
+Bu dosya, boot receiver veya benzeri bir Android autostart mekanizmasi tarafindan
+dogrudan cagrilabilir.
+
 Ilk testte foreground calisma halen en guvenli yoldur. Ancak bu script'ler,
 yeniden kurulum ve tekrar baslatma adimlarini tek komutta ve daha az hatayla
 yapabilmek icin eklendi.
+
+## Android Autostart Yardimci APK
+
+`android-autostart/` klasorunde, Android cihaz acilisinda
+`start-go2rtc-device.sh` komutunu calistirmak icin kucuk bir helper APK
+iskeleti bulunur.
+
+Bu iskelet:
+
+- `BOOT_COMPLETED` dinler
+- `MY_PACKAGE_REPLACED` dinler
+- `su -c /data/local/tmp/staj-gateway/start-go2rtc-device.sh` calistirir
+
+Bu sayede autostart mantigi repo seviyesinde somutlastirilmis olur.
+Ancak son adim olan gercek boot testi hala cihaz uzerinde yapilmalidir.
 
 ## Kontrol Noktalari
 

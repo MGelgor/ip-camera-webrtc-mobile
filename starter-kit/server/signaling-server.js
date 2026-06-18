@@ -32,15 +32,70 @@ const SIGNALING_TLS_CERT_PATH = process.env.SIGNALING_TLS_CERT_PATH ?? "";
 const SIGNALING_TLS_KEY_PATH = process.env.SIGNALING_TLS_KEY_PATH ?? "";
 const GO2RTC_API_USERNAME = process.env.GO2RTC_API_USERNAME ?? "";
 const GO2RTC_API_PASSWORD = process.env.GO2RTC_API_PASSWORD ?? "";
+const SIGNALING_RATE_LIMIT_WINDOW_MS = Number(process.env.SIGNALING_RATE_LIMIT_WINDOW_MS ?? 60_000);
+const SIGNALING_RATE_LIMIT_MAX_REQUESTS = Number(process.env.SIGNALING_RATE_LIMIT_MAX_REQUESTS ?? 120);
 
 // Oda mantigini hafif bir bellek yapisinda tutuyoruz.
 // Bu server video tasimaz; sadece baglanti mesajlarini relaye eder.
 const rooms = new Map();
 const clients = new Map();
+const rateLimits = new Map();
 
 function writeJson(res, statusCode, payload) {
   res.writeHead(statusCode, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(payload, null, 2));
+}
+
+function clientIp(req) {
+  const forwarded = req.headers["x-forwarded-for"];
+  const raw = Array.isArray(forwarded) ? forwarded[0] : forwarded ?? req.socket.remoteAddress ?? "unknown";
+  return String(raw).split(",")[0].trim();
+}
+
+function maskValue(value) {
+  if (!value || value === "unknown") {
+    return "unknown";
+  }
+
+  if (value.includes(":")) {
+    const parts = value.split(":");
+    return `${parts.slice(0, 2).join(":")}:***`;
+  }
+
+  const parts = value.split(".");
+  if (parts.length === 4) {
+    return `${parts[0]}.${parts[1]}.***.***`;
+  }
+
+  return "***";
+}
+
+function logEvent(kind, details) {
+  const line = Object.entries(details)
+    .map(([key, value]) => `${key}=${value}`)
+    .join(" ");
+  console.log(`[signaling] ${kind}${line ? ` ${line}` : ""}`);
+}
+
+function takeRateLimit(req) {
+  const ip = clientIp(req);
+  const now = Date.now();
+  const entry = rateLimits.get(ip);
+
+  if (!entry || now > entry.resetAt) {
+    rateLimits.set(ip, {
+      count: 1,
+      resetAt: now + SIGNALING_RATE_LIMIT_WINDOW_MS,
+    });
+    return true;
+  }
+
+  if (entry.count >= SIGNALING_RATE_LIMIT_MAX_REQUESTS) {
+    return false;
+  }
+
+  entry.count += 1;
+  return true;
 }
 
 function cameraCatalog() {
@@ -163,6 +218,16 @@ function removeClient(clientId) {
 // Sonraki asamada WebSocket eklenecek ve mobil uygulama ile karsilikli mesajlasma baslayacak.
 const requestHandler = (req, res) => {
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+  const maskedIp = maskValue(clientIp(req));
+
+  if (!takeRateLimit(req)) {
+    logEvent("rate-limit", { ip: maskedIp, path: url.pathname });
+    writeJson(res, 429, {
+      ok: false,
+      error: "Too many requests",
+    });
+    return;
+  }
 
   if (url.pathname === "/health") {
     writeJson(res, 200, {
@@ -193,6 +258,7 @@ const requestHandler = (req, res) => {
 
   if (url.pathname === "/rooms") {
     if (!isAuthorized(req, url)) {
+      logEvent("unauthorized-http", { ip: maskedIp, path: url.pathname });
       writeJson(res, 401, {
         ok: false,
         error: "Unauthorized",
@@ -209,6 +275,7 @@ const requestHandler = (req, res) => {
 
   if (url.pathname === "/cameras") {
     if (!isAuthorized(req, url)) {
+      logEvent("unauthorized-http", { ip: maskedIp, path: url.pathname });
       writeJson(res, 401, {
         ok: false,
         error: "Unauthorized",
@@ -251,7 +318,16 @@ const wss = new WebSocket.Server({ server, path: "/ws" });
 
 wss.on("connection", (ws, req) => {
   const url = new URL(req.url ?? "/ws", `http://${req.headers.host ?? "localhost"}`);
+  const maskedIp = maskValue(clientIp(req));
+
+  if (!takeRateLimit(req)) {
+    logEvent("rate-limit-ws", { ip: maskedIp, path: url.pathname });
+    ws.close(1013, "Rate limit");
+    return;
+  }
+
   if (!isAuthorized(req, url)) {
+    logEvent("unauthorized-ws", { ip: maskedIp, path: url.pathname });
     ws.close(1008, "Unauthorized");
     return;
   }
@@ -272,6 +348,7 @@ wss.on("connection", (ws, req) => {
     clientId,
     message: "Signaling websocket baglantisi kuruldu.",
   });
+  logEvent("ws-connected", { ip: maskedIp, clientId: clientId.slice(0, 8) });
 
   ws.on("message", (raw) => {
     let message;
@@ -311,6 +388,12 @@ wss.on("connection", (ws, req) => {
         clientId,
         role: client.role,
         members: roomSnapshot(room).members,
+      });
+      logEvent("room-join", {
+        ip: maskedIp,
+        room: roomName,
+        clientId: clientId.slice(0, 8),
+        role: client.role,
       });
 
       broadcastToRoom(
@@ -357,6 +440,7 @@ wss.on("connection", (ws, req) => {
   });
 
   ws.on("close", () => {
+    logEvent("ws-closed", { ip: maskedIp, clientId: clientId.slice(0, 8) });
     removeClient(clientId);
   });
 });

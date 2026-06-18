@@ -41,7 +41,9 @@ IP Kamera
 - [x] go2rtc API authentication ekle
 - [ ] sub stream path'i bulunursa `ofis_kamera_sub` olarak ekle
 - [x] gateway'i Mac yerine kamera lokasyonundaki akilli diyafon uzerinde calistir
-- [ ] Android gateway acilisinda otomatik baslama mekanizmasi ekle
+- [x] Android gateway icin cihaz ici start script uret
+- [x] Android gateway autostart helper APK iskeleti ekle
+- [ ] Android gateway acilisinda otomatik baslama mekanizmasini cihazda dogrula
 
 ### Signaling Server
 
@@ -54,7 +56,7 @@ IP Kamera
 - [ ] HTTPS/WSS'i gercek sertifika ile aktif et
 - [ ] Kullanici auth akisina bagli token dogrulamasi ekle
 - [ ] Oda/kamera yetkilendirmesi ekle
-- [ ] Rate limit ve temel loglama ekle
+- [x] Rate limit ve temel loglama ekle
 
 ### Mobil Uygulama
 

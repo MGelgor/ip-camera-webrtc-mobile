@@ -22,6 +22,7 @@ DEVICE_BINARY="${DEVICE_WORKDIR}/go2rtc"
 DEVICE_CONFIG="${DEVICE_WORKDIR}/go2rtc.yaml"
 DEVICE_LOG="${DEVICE_WORKDIR}/go2rtc.log"
 DEVICE_PID="${DEVICE_WORKDIR}/go2rtc.pid"
+DEVICE_START_SCRIPT="${DEVICE_WORKDIR}/start-go2rtc-device.sh"
 
 find_adb() {
   if [[ -n "${ADB_BIN:-}" && -x "${ADB_BIN}" ]]; then
@@ -115,22 +116,33 @@ echo "Eski process temizleniyor..."
 echo "Calisma izinleri veriliyor..."
 "${ADB_BIN}" -s "${DEVICE_SERIAL}" shell "chmod 755 ${DEVICE_BINARY}"
 
+rendered_start_script="$(mktemp)"
+cat > "${rendered_start_script}" <<EOF
+#!/system/bin/sh
+cd $(shell_quote "${DEVICE_WORKDIR}") || exit 1
+export CAMERA_USER=$(shell_quote "${CAMERA_USER}")
+export CAMERA_PASSWORD=$(shell_quote "${CAMERA_PASSWORD}")
+export CAMERA_IP=$(shell_quote "${CAMERA_IP}")
+export CAMERA_PORT=$(shell_quote "${CAMERA_PORT}")
+export CAMERA_RTSP_MAIN_PATH=$(shell_quote "${CAMERA_RTSP_MAIN_PATH}")
+export GO2RTC_API_USERNAME=$(shell_quote "${GO2RTC_API_USERNAME}")
+export GO2RTC_API_PASSWORD=$(shell_quote "${GO2RTC_API_PASSWORD}")
+export STUN_URL=$(shell_quote "${STUN_URL}")
+export TURN_URL=$(shell_quote "${TURN_URL}")
+export TURN_USER=$(shell_quote "${TURN_USER}")
+export TURN_PASSWORD=$(shell_quote "${TURN_PASSWORD}")
+nohup $(shell_quote "${DEVICE_BINARY}") -c $(shell_quote "${DEVICE_CONFIG}") > $(shell_quote "${DEVICE_LOG}") 2>&1 < /dev/null &
+echo \$! > $(shell_quote "${DEVICE_PID}")
+EOF
+
+echo "Cihaz ici start script kopyalaniyor..."
+"${ADB_BIN}" -s "${DEVICE_SERIAL}" push "${rendered_start_script}" "${DEVICE_START_SCRIPT}" >/dev/null
+"${ADB_BIN}" -s "${DEVICE_SERIAL}" shell "chmod 755 ${DEVICE_START_SCRIPT}"
+rm -f "${rendered_start_script}"
+
 remote_command=$(
   cat <<EOF
-cd $(shell_quote "${DEVICE_WORKDIR}") && \
-export CAMERA_USER=$(shell_quote "${CAMERA_USER}") && \
-export CAMERA_PASSWORD=$(shell_quote "${CAMERA_PASSWORD}") && \
-export CAMERA_IP=$(shell_quote "${CAMERA_IP}") && \
-export CAMERA_PORT=$(shell_quote "${CAMERA_PORT}") && \
-export CAMERA_RTSP_MAIN_PATH=$(shell_quote "${CAMERA_RTSP_MAIN_PATH}") && \
-export GO2RTC_API_USERNAME=$(shell_quote "${GO2RTC_API_USERNAME}") && \
-export GO2RTC_API_PASSWORD=$(shell_quote "${GO2RTC_API_PASSWORD}") && \
-export STUN_URL=$(shell_quote "${STUN_URL}") && \
-export TURN_URL=$(shell_quote "${TURN_URL}") && \
-export TURN_USER=$(shell_quote "${TURN_USER}") && \
-export TURN_PASSWORD=$(shell_quote "${TURN_PASSWORD}") && \
-nohup $(shell_quote "${DEVICE_BINARY}") -c $(shell_quote "${DEVICE_CONFIG}") > $(shell_quote "${DEVICE_LOG}") 2>&1 < /dev/null & \
-echo \$! > $(shell_quote "${DEVICE_PID}")
+$(shell_quote "${DEVICE_START_SCRIPT}")
 EOF
 )
 
