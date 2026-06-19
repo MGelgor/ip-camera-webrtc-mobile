@@ -31,10 +31,9 @@ const CAMERA_LOCATION = process.env.CAMERA_LOCATION ?? "Multitek test alani";
 const SIGNALING_AUTH_TOKEN = process.env.SIGNALING_AUTH_TOKEN ?? "";
 const SIGNALING_TLS_CERT_PATH = process.env.SIGNALING_TLS_CERT_PATH ?? "";
 const SIGNALING_TLS_KEY_PATH = process.env.SIGNALING_TLS_KEY_PATH ?? "";
-const GO2RTC_API_USERNAME = process.env.GO2RTC_API_USERNAME ?? "";
-const GO2RTC_API_PASSWORD = process.env.GO2RTC_API_PASSWORD ?? "";
 const SIGNALING_RATE_LIMIT_WINDOW_MS = Number(process.env.SIGNALING_RATE_LIMIT_WINDOW_MS ?? 60_000);
 const SIGNALING_RATE_LIMIT_MAX_REQUESTS = Number(process.env.SIGNALING_RATE_LIMIT_MAX_REQUESTS ?? 120);
+const ALLOWED_SIGNAL_TYPES = new Set(["offer", "answer", "ice-candidate", "webrtc/offer", "webrtc/answer", "webrtc/candidate"]);
 
 // Oda mantigini hafif bir bellek yapisinda tutuyoruz.
 // Bu server video tasimaz; sadece baglanti mesajlarini relaye eder.
@@ -103,11 +102,6 @@ function cameraCatalog() {
   const encodedStreamName = encodeURIComponent(CAMERA_STREAM_NAME);
   const gatewayBaseUrl = GATEWAY_PUBLIC_BASE_URL || `http://${GATEWAY_HOST}:${GATEWAY_API_PORT}`;
   const gatewayWebSocketBaseUrl = gatewayBaseUrl.replace(/^https:/, "wss:").replace(/^http:/, "ws:");
-  const gatewayAuthHeader =
-    GO2RTC_API_USERNAME && GO2RTC_API_PASSWORD
-      ? `Basic ${Buffer.from(`${GO2RTC_API_USERNAME}:${GO2RTC_API_PASSWORD}`, "utf8").toString("base64")}`
-      : null;
-
   return [
     {
       id: "ofis-kamera",
@@ -119,7 +113,6 @@ function cameraCatalog() {
       playerUrl: `${gatewayBaseUrl}/stream.html?src=${encodedStreamName}`,
       webrtcUrl: `${gatewayWebSocketBaseUrl}/api/ws?src=${encodedStreamName}`,
       gatewayWebRtcPort: GATEWAY_WEBRTC_PORT,
-      gatewayAuthHeader,
       room: CAMERA_STREAM_NAME,
     },
   ];
@@ -318,7 +311,7 @@ server.listen(PORT, () => {
 
 // WebSocket, WebRTC tarafinin teklif/cvp/ICE mesajlarini tasimasi icin kullanilir.
 // HTTP sadece saglik ve room gozlemi icin açık bırakıldı.
-const wss = new WebSocket.Server({ server, path: "/ws" });
+const wss = new WebSocket.Server({ server, path: "/ws", maxPayload: 256 * 1024 });
 
 wss.on("connection", (ws, req) => {
   const url = new URL(req.url ?? "/ws", `http://${req.headers.host ?? "localhost"}`);
@@ -378,11 +371,18 @@ wss.on("connection", (ws, req) => {
         });
         return;
       }
+      if (roomName !== CAMERA_STREAM_NAME) {
+        send(ws, {
+          type: "error",
+          message: "Bu kamera odasina erisim izni yok.",
+        });
+        return;
+      }
 
       const room = ensureRoom(roomName);
       client.room = roomName;
       client.role = message.role === "publisher" ? "publisher" : "viewer";
-      client.name = String(message.name ?? client.name).trim();
+      client.name = String(message.name ?? client.name).trim().slice(0, 80);
       client.joinedAt = new Date().toISOString();
       room.members.add(clientId);
 
@@ -427,6 +427,14 @@ wss.on("connection", (ws, req) => {
       send(ws, {
         type: "error",
         message: "Once bir room'a join olmalisin.",
+      });
+      return;
+    }
+
+    if (!ALLOWED_SIGNAL_TYPES.has(message.type)) {
+      send(ws, {
+        type: "error",
+        message: "Desteklenmeyen signaling mesaji.",
       });
       return;
     }

@@ -101,5 +101,5 @@ PDF'teki final mimariye yaklasmak icin siradaki isler:
 1. HTTPS/WSS'i gercek sertifika ile aktif etmek
 2. Oda/kamera yetkilendirmesini uygulama auth akisina baglamak
 3. Native WebRTC tekrar denenirse offer/answer/ICE mesajlarini buradan tasimak
-4. TURN bilgisini public VPS uzerinden kullanmak
-5. Dis ag ve mobil veri testini yapmak
+4. Kalici domain ile named tunnel kurmak
+5. Signaling tokenini kullanici auth akisina baglamak

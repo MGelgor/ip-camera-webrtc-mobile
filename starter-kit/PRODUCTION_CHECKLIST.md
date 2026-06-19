@@ -94,6 +94,7 @@ IP Kamera
 - [ ] Oda/kamera yetkilendirmesi ekle
 - [x] Rate limit ve temel loglama ekle
 - [x] Gecici public tunnel ile gercek sertifikali WSS baglantisini fiziksel cihazda dogrula
+- [ ] Signaling ve named tunnel'i Mac reboot sonrasi otomatik baslat
 
 ### Mobil Uygulama
 
@@ -109,6 +110,7 @@ IP Kamera
 - [x] Kamera secimine gore player URL uret
 - [x] Fiziksel Android cihazda test et
 - [x] Tam ekran canli izleme modu ekle
+- [ ] Metro/USB gerektirmeyen imzali Android release build uret
 - [ ] Native `react-native-webrtc` yolunu tekrar degerlendir
 
 ### Mobil Test Notlari
@@ -128,8 +130,13 @@ IP Kamera
 - [x] Lokal STUN ayari
 - [x] Bulut deploy icin coturn Docker dosyalarini hazirla
 - [x] Lokal Docker ile coturn ayağa kaldir ve portlarini dogrula
-- [ ] Bulutta coturn kur
-- [ ] TURN username/password veya token ekle
+- [x] macOS coturn LaunchAgent ve Keychain tabanli kimlik bilgisi hazirla
+- [x] TURN hosting karari: router arkasindaki Mac'i public coturn olarak kullan
+- [x] Lokal TURN username/password bilgisini macOS Keychain'e ekle
+- [x] Mac coturn'u public IP ve router port forwarding ile dis aga ac
+- [x] 5G uzerinden TURN `relay-only` candidate testini dogrula
+- [ ] TURN adresi icin statik public IP veya otomatik DDNS tanimla
+- [ ] Production icin kisa omurlu TURN credential mekanizmasi ekle
 - [x] Mobil veri ile signaling ve gecici tunnel video testi yap
 - [ ] Farkli Wi-Fi agindan test et
 - [x] Port forwarding kullanmadan gecici tunnel senaryosunu dogrula
@@ -155,6 +162,20 @@ IP Kamera
   acti; gateway tarafinda aktif consumer olustugu dogrulandi. Bu gecici MSE/WebSocket
   demo yolu TURN kurulumunun yerini tutmaz ve production icin kalici tunnel/domain
   ile erisim politikasi gerektirir.
+- Canli 5G WebRTC oturumunda gateway `ws+udp` ve `srflx` remote candidate raporladi;
+  bu, STUN ile NAT dis adresinin bulunup dogrudan UDP medya yolunun kuruldugunu
+  dogruladi. Bu oturum TURN relay kullanmadi.
+- Mac uzerinde coturn 4.13.1 LaunchAgent olarak kuruldu. Lokal STUN binding ile
+  kimlik dogrulamali TURN allocation/channel bind testleri gecti ve paket kaybi
+  olmadi. Router'da `3478/tcp+udp` ve `48160-48200/udp` Mac'e yonlendirildi.
+- Samsung S24 FE Wi-Fi kapali ve 5G'deyken public IP'ye ham STUN istegi yanitlandi,
+  `3478/tcp` erisimi gecti ve relay araliginin iki ucu (`48160`, `48200`) Mac'e
+  ulasti. WebRTC Trickle ICE testi `relay-only` modunda kimlik dogrulamali
+  `relay / UDP / <public-ip>:48198` candidate uretti. Public TURN zinciri uctan
+  uca dogrulandi.
+- TURN kullanicisi plaintext process argumanindan kaldirilip izinleri `600` olan
+  coturn SQLite user DB'ye tasindi. Keychain parolasi ile lokal allocation ve 5G
+  `relay-only` testi tekrar gecti (`<public-ip>:48192`).
 
 ### Guvenlik
 
@@ -162,18 +183,22 @@ IP Kamera
 - [x] Gercek `.env` dosyasini `.gitignore` ile disarida tut
 - [x] go2rtc API auth
 - [x] Signaling icin opsiyonel auth destegi
+- [x] Gecici public signaling'i Keychain tabanli bearer token ile koru
 - [x] HTTPS/WSS icin kod ve script hazirligi
 - [x] Gecici public HTTPS/WSS dis ag testi
+- [x] Named Cloudflare Tunnel ingress config ornegini hazirla
+- [ ] Cloudflare hesabini ve alan adini Mac'e yetkilendir
 - [ ] Kalici domain ve production HTTPS/WSS kurulumu
-- [ ] Kamera bilgilerini mobil istemciye acmama kontrolu
+- [x] Signaling kamera katalogundan auth header ve RTSP credential cikmadigini dogrula
+- [ ] go2rtc auth bilgisini mobil uygulama paketinden cikarip yetkili proxy arkasina al
 - [ ] Uretim loglarinda RTSP URL/sifre maskeleme
 
 ## 4. Siradaki En Mantikli Sira
 
 1. Signaling server'i gercek sertifika ile WSS destekleyecek sekilde deploy et
-2. Public VPS uzerinde coturn kur
-3. Mobil veri / farkli Wi-Fi testi yap
-4. Native WebRTC yolunu fiziksel cihazda tekrar dene
+2. Signaling tokenini kullanici auth akisina bagla
+3. Farkli Wi-Fi agindan test et
+4. Native WebRTC yolunu fiziksel cihazda tekrar degerlendir
 
 ## 5. Karar Notu
 

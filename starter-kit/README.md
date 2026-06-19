@@ -65,11 +65,13 @@ Bu dosyalarda şu bilgiler bulunur:
 
 ## Şu anda eksik kalanlar
 
-- Public TURN sunucusu dış ağ testi için ayağa kaldırılacak
 - Signaling server gerçek sertifika ile HTTPS/WSS arkasına alınacak
-- Mobil uygulamada kamera listesi dinamik hale getirilecek
+- TURN endpoint'i statik public IP veya otomatik DDNS adresine bağlanacak
+- Signaling ve named tunnel Mac yeniden başladığında otomatik açılacak
+- Signaling yetkilendirmesi kullanıcı auth akışına bağlanacak
+- TURN için kısa ömürlü production credential mekanizması eklenecek
+- Metro/USB gerektirmeyen imzalı Android release build üretilecek
 - Native `react-native-webrtc` yolu tekrar değerlendirilecek
-- WebView yaklaşımı üretim kararı olacaksa hata/yüklenme/tam ekran davranışları güçlendirilecek
 
 Gerçek `.env` dosyası repoya eklenmemelidir.
 
@@ -90,8 +92,10 @@ Gerekli kontrol adresleri:
 - `http://localhost:1984`
 - `:8555`
 
-go2rtc API basic auth aktiftir. Mobil uygulama bu auth bilgisini signaling server'in
-`/cameras` katalog cevabindan alir ve header olarak kullanir.
+go2rtc API basic auth aktiftir. Signaling server `/cameras` katalog cevabinda auth
+header veya RTSP credential dondurmez. Gelistirme build'i go2rtc auth bilgisini yerel
+ortam degiskeninden alir; production'da bu bilgi uygulama paketinden de cikarilip
+kimlik dogrulamali bir gateway proxy/erisim politikasi arkasina alinmalidir.
 
 ## PDF ile Uyum Notu
 
@@ -108,12 +112,13 @@ IP Kamera -> RTSP -> go2rtc -> go2rtc player -> React Native WebView
 ```
 
 Bu yol proje için geçerli bir ara aşamadır. Canlı görüntüyü hızlı ve stabil şekilde gösterir.
-Ancak dış ağ, TURN, WSS, yetkilendirme ve native WebRTC tarafı tamamlanmadan final ürün sayılmaz.
+TURN ve dış ağ akışı fiziksel cihazda doğrulandı. Kalıcı WSS, kullanıcı yetkilendirmesi
+ve native WebRTC kararı tamamlanmadan final ürün sayılmaz.
 
 ## TURN Katmani
 
-PDF'teki final mimariyi takip etmek icin `turn/` klasorune Linux VPS uzerinde
-calisacak bir Docker tabanli coturn kurulumu eklendi.
+PDF'teki final mimariyi takip etmek icin `turn/` klasorune Docker tabanli coturn
+kurulumu ve bu Mac'te surekli calisan LaunchAgent kurulumu eklendi.
 
 Bu katman:
 
@@ -121,7 +126,7 @@ Bu katman:
 - mobil veri testlerini mumkun kilar
 - statik IP gerektirmeyen dis ag senaryosuna yaklastirir
 
-Lokal entegrasyon testi icin Docker ile bilgisayarda da ayaga kaldirilabilir:
+Alternatif Docker kurulumu su komutla ayaga kaldirilabilir:
 
 ```bash
 cd starter-kit/turn

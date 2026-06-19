@@ -131,8 +131,8 @@ export const COPY: Record<LocaleMode, AppCopy> = {
         { name: "RTSP kaynagi", value: "Hazir", tone: "success" },
         { name: "Signaling server", value: "Hazir", tone: "success" },
         { name: "Mobil canli onizleme", value: "Hazir", tone: "success" },
-        { name: "TURN / STUN", value: "Beklemede", tone: "warning" },
-        { name: "Uzaktan erişim", value: "Planlandı", tone: "neutral" },
+        { name: "TURN / STUN", value: "Hazir", tone: "success" },
+        { name: "Uzaktan erişim", value: "Test edildi", tone: "success" },
       ],
       signaling: {
         title: "Canlı Bağlantı",
@@ -306,8 +306,8 @@ export const COPY: Record<LocaleMode, AppCopy> = {
         { name: "RTSP source", value: "Ready", tone: "success" },
         { name: "Signaling server", value: "Ready", tone: "success" },
         { name: "Mobile live preview", value: "Ready", tone: "success" },
-        { name: "TURN / STUN", value: "Waiting", tone: "warning" },
-        { name: "Remote access", value: "Planned", tone: "neutral" },
+        { name: "TURN / STUN", value: "Ready", tone: "success" },
+        { name: "Remote access", value: "Tested", tone: "success" },
       ],
       signaling: {
         title: "Live Connection",
@@ -477,8 +477,8 @@ export const COPY: Record<LocaleMode, AppCopy> = {
         { name: "مصدر RTSP", value: "جاهز", tone: "success" },
         { name: "خادم signaling", value: "جاهز", tone: "success" },
         { name: "المعاينة المباشرة في التطبيق", value: "جاهزة", tone: "success" },
-        { name: "TURN / STUN", value: "بانتظار", tone: "warning" },
-        { name: "الوصول البعيد", value: "مخطط", tone: "neutral" },
+        { name: "TURN / STUN", value: "جاهز", tone: "success" },
+        { name: "الوصول البعيد", value: "تم اختباره", tone: "success" },
       ],
       signaling: {
         title: "الاتصال المباشر",
@@ -645,8 +645,8 @@ export const COPY: Record<LocaleMode, AppCopy> = {
         { name: "RTSP-источник", value: "Готово", tone: "success" },
         { name: "Signaling server", value: "Готово", tone: "success" },
         { name: "Мобильный предпросмотр", value: "Готово", tone: "success" },
-        { name: "TURN / STUN", value: "Ожидает", tone: "warning" },
-        { name: "Удаленный доступ", value: "Запланировано", tone: "neutral" },
+        { name: "TURN / STUN", value: "Готово", tone: "success" },
+        { name: "Удаленный доступ", value: "Проверено", tone: "success" },
       ],
       signaling: {
         title: "Живое соединение",

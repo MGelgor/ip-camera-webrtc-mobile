@@ -6,7 +6,7 @@ listening-ip=0.0.0.0
 
 # Public IP'li VPS uzerinde relay icin dis IP'yi acik veriyoruz.
 external-ip=${TURN_PUBLIC_IP}
-relay-ip=${TURN_PUBLIC_IP}
+relay-ip=${TURN_RELAY_IP}
 
 # Kimlik dogrulama aktif.
 fingerprint

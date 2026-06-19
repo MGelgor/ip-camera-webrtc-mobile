@@ -34,7 +34,6 @@ export async function fetchRuntimeCameras(
       streamName?: string;
       gatewayHost?: string;
       gatewayBaseUrl?: string;
-      gatewayAuthHeader?: string;
     }>;
   };
 
@@ -53,7 +52,7 @@ export async function fetchRuntimeCameras(
       streamName: camera.streamName!,
       gatewayHost: camera.gatewayHost ?? fallback?.gatewayHost,
       gatewayBaseUrl: camera.gatewayBaseUrl ?? fallback?.gatewayBaseUrl,
-      gatewayAuthHeader: camera.gatewayAuthHeader ?? fallback?.gatewayAuthHeader,
+      gatewayAuthHeader: fallback?.gatewayAuthHeader,
       gatewayUsername: fallback?.gatewayUsername,
       gatewayPassword: fallback?.gatewayPassword,
     };

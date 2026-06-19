@@ -1,0 +1,9 @@
+tunnel: REPLACE_WITH_TUNNEL_ID
+credentials-file: /Users/REPLACE_WITH_USER/.cloudflared/REPLACE_WITH_TUNNEL_ID.json
+
+ingress:
+  - hostname: signaling.example.com
+    service: http://127.0.0.1:3000
+  - hostname: camera.example.com
+    service: http://10.1.1.3:1984
+  - service: http_status:404

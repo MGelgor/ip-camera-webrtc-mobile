@@ -31,7 +31,7 @@ durumlarinda bu katman kritik olur.
 - VPS firewall / cloud security group uzerinde bu portlar acik olmali:
   - `3478/tcp`
   - `3478/udp`
-  - `49160-49200/udp`
+  - `48160-48200/udp`
 
 ## Hangi dosyalar var?
 
@@ -54,6 +54,7 @@ TURN_PASSWORD
 TURN_REALM
 TURN_SERVER_NAME
 TURN_PUBLIC_IP
+TURN_RELAY_IP
 TURN_PORT
 TURN_MIN_PORT
 TURN_MAX_PORT
@@ -76,6 +77,35 @@ docker compose up -d --build
 ```bash
 docker compose logs -f
 ```
+
+## Bu Mac'te Surekli Calistirma
+
+macOS gelistirme bilgisayarinda coturn'u LaunchAgent olarak kurmak icin:
+
+```bash
+brew install coturn
+./install-coturn-macos-service.sh
+```
+
+Kurulum rastgele TURN sifresini macOS Keychain'de saklar ve oturum acilinca servisi
+otomatik baslatir. Mac NAT arkasindaysa router'da su portlar Mac'in yerel IP'sine
+yonlendirilmelidir:
+
+- `3478/tcp`
+- `3478/udp`
+- `48160-48200/udp`
+
+Cloudflare HTTP tunnel bu UDP port yonlendirmesinin yerini tutmaz.
+
+Yerel servis testi:
+
+```bash
+turnutils_stunclient 127.0.0.1 -p 3478
+```
+
+Mac NAT arkasinda calisiyorsa `TURN_PUBLIC_IP` internette gorunen adres,
+`TURN_RELAY_IP` ise Mac'in LAN adresidir. Router, relay portlarini bire bir ayni
+portlara yonlendirmelidir.
 
 ## go2rtc ile baglama
 
@@ -104,4 +134,5 @@ Bu compose dosyasi dogrudan port mapping kullanir.
 
 - Lokal Mac testinde Docker Desktop ile calisabilir
 - VPS tarafinda da ayni compose dosyasi kullanilabilir
-- Gercek dis ag testi icin yine de public IP'li bir VPS gerekir
+- Bu projede Mac, router port forwarding ile public TURN sunucusu olarak kullanilir
+- Alternatif olarak ayni compose yapisi public IP'li bir VPS'e tasinabilir
