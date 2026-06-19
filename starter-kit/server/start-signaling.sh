@@ -11,11 +11,6 @@ if [[ ! -f "${ENV_FILE}" ]]; then
   exit 1
 fi
 
-if [[ ! -d "${SCRIPT_DIR}/node_modules/ws" ]]; then
-  echo "Signaling bagimliliklari kuruluyor..."
-  npm ci --prefix "${SCRIPT_DIR}"
-fi
-
 set -a
 # shellcheck disable=SC1090
 source "${ENV_FILE}"

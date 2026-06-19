@@ -15,9 +15,10 @@
 const http = require("node:http");
 const https = require("node:https");
 const crypto = require("node:crypto");
+const path = require("node:path");
 const fs = require("node:fs");
 const { URL } = require("node:url");
-const WebSocket = require("ws");
+const WebSocket = require(path.join(__dirname, "../mobile/node_modules/ws"));
 
 const PORT = Number(process.env.SIGNALING_PORT ?? process.env.PORT ?? 3000);
 const GATEWAY_HOST = process.env.GATEWAY_HOST ?? "10.1.1.3";
@@ -186,36 +187,30 @@ function broadcastToRoom(roomName, payload, exceptClientId = null) {
   }
 }
 
-function leaveRoom(clientId) {
+function removeClient(clientId) {
   const client = clients.get(clientId);
   if (!client) return;
 
-  const roomName = client.room;
-  if (roomName) {
-    const room = rooms.get(roomName);
+  if (client.room) {
+    const room = rooms.get(client.room);
     if (room) {
       room.members.delete(clientId);
       broadcastToRoom(
-        roomName,
+        client.room,
         {
           type: "peer-left",
-          room: roomName,
+          room: client.room,
           peerId: clientId,
         },
         clientId,
       );
 
       if (room.members.size === 0) {
-        rooms.delete(roomName);
+        rooms.delete(client.room);
       }
     }
   }
 
-  client.room = null;
-}
-
-function removeClient(clientId) {
-  leaveRoom(clientId);
   clients.delete(clientId);
 }
 
@@ -380,11 +375,6 @@ wss.on("connection", (ws, req) => {
         return;
       }
 
-      const joiningNewRoom = client.room !== roomName;
-      if (client.room && joiningNewRoom) {
-        leaveRoom(clientId);
-      }
-
       const room = ensureRoom(roomName);
       client.room = roomName;
       client.role = message.role === "publisher" ? "publisher" : "viewer";
@@ -406,29 +396,26 @@ wss.on("connection", (ws, req) => {
         role: client.role,
       });
 
-      if (joiningNewRoom) {
-        broadcastToRoom(
-          roomName,
-          {
-            type: "peer-joined",
-            room: roomName,
-            peerId: clientId,
-            role: client.role,
-            name: client.name,
-          },
-          clientId,
-        );
-      }
+      broadcastToRoom(
+        roomName,
+        {
+          type: "peer-joined",
+          room: roomName,
+          peerId: clientId,
+          role: client.role,
+          name: client.name,
+        },
+        clientId,
+      );
       return;
     }
 
     if (message.type === "leave") {
-      const roomName = client.room;
       send(ws, {
         type: "left",
-        room: roomName,
+        room: client.room,
       });
-      leaveRoom(clientId);
+      removeClient(clientId);
       return;
     }
 

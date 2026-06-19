@@ -125,33 +125,31 @@ export function LiveScreen({
         </View>
 
         <View style={[styles.liveVideoFrame, { borderColor: theme.border, backgroundColor: theme.surface }]}>
-          {!isFullscreenOpen ? (
-            <WebView
-              ref={webViewRef}
-              source={{ uri: playerUrl }}
-              basicAuthCredential={basicAuthCredential}
-              style={styles.liveVideo}
-              allowsInlineMediaPlayback
-              javaScriptEnabled
-              domStorageEnabled
-              mediaPlaybackRequiresUserAction={false}
-              mixedContentMode="always"
-              originWhitelist={["*"]}
-              startInLoadingState
-              onLoadStart={() => {
-                setIsLoading(true);
-                setHasLoadError(false);
-                setIsGatewayOffline(false);
-              }}
-              onLoadEnd={() => {
-                setIsLoading(false);
-              }}
-              onError={() => {
-                setIsLoading(false);
-                setHasLoadError(true);
-              }}
-            />
-          ) : null}
+          <WebView
+            ref={webViewRef}
+            source={{ uri: playerUrl }}
+            basicAuthCredential={basicAuthCredential}
+            style={styles.liveVideo}
+            allowsInlineMediaPlayback
+            javaScriptEnabled
+            domStorageEnabled
+            mediaPlaybackRequiresUserAction={false}
+            mixedContentMode="always"
+            originWhitelist={["*"]}
+            startInLoadingState
+            onLoadStart={() => {
+              setIsLoading(true);
+              setHasLoadError(false);
+              setIsGatewayOffline(false);
+            }}
+            onLoadEnd={() => {
+              setIsLoading(false);
+            }}
+            onError={() => {
+              setIsLoading(false);
+              setHasLoadError(true);
+            }}
+          />
 
           {!isLoading && !hasLoadError ? (
             <Pressable
