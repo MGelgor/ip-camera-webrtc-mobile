@@ -31,7 +31,8 @@ Amaç:
 - Android gateway uzerinde reboot sonrasi root-level autostart dogrulandi
 - Tarayıcıda `go2rtc` player ile görüntü alındı
 - Android emülatörde mobil uygulama içinde görüntü alındı
-- Signaling server WebSocket bağlantısı kabul ediyor
+- Samsung S24 FE fiziksel cihazda auth aktif canlı/tam ekran görüntü alındı
+- Fiziksel cihaz signaling WebSocket bağlantısı ve oda katılımı doğrulandı
 
 Çalışan RTSP formatı:
 

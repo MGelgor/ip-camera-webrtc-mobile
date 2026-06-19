@@ -75,6 +75,25 @@ Cunku native `react-native-webrtc` denemesi Android emulator tarafinda native cr
 ### `./generate-dev-cert.sh`
 Lokal HTTPS/WSS testi icin self-signed sertifika uretir.
 
+### `./start-signaling-tunnel.sh`
+
+Calisan lokal signaling server'i gecici, public ve gercek sertifikali bir
+`trycloudflare.com` adresine tasir:
+
+```bash
+./start-signaling-tunnel.sh
+```
+
+Tunnel ciktisindaki `https://<gecici-host>` adresinin WebSocket karsiligi
+`wss://<gecici-host>/ws` olur. Fiziksel Android build'i bu adresle baslatmak icin:
+
+```bash
+EXPO_PUBLIC_SIGNALING_URL="wss://<gecici-host>/ws" npm run android:device
+```
+
+Quick Tunnel yalnizca gelistirme/test icindir. Process kapaninca adres gecersiz olur;
+uretimde sabit domain, erisim politikasi ve yonetilen tunnel kullanilmalidir.
+
 ## Sonraki Adim
 
 PDF'teki final mimariye yaklasmak icin siradaki isler:

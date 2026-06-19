@@ -16,6 +16,7 @@ type Props = {
   cameraName: string;
   cameraLocation: string;
   requestHeaders?: Record<string, string>;
+  basicAuthCredential?: { username: string; password: string };
 };
 
 // This is the first stable media screen.
@@ -34,6 +35,7 @@ export function LiveScreen({
   cameraName,
   cameraLocation,
   requestHeaders,
+  basicAuthCredential,
 }: Props) {
   const webViewRef = useRef<WebViewType>(null);
   const fullscreenWebViewRef = useRef<WebViewType>(null);
@@ -94,7 +96,7 @@ export function LiveScreen({
       cancelled = true;
       clearInterval(timer);
     };
-  }, [streamName, streamStatusUrl]);
+  }, [requestHeaders, streamName, streamStatusUrl]);
 
   const stateLabel = isGatewayOffline ? copy.stateError : copy.stateConnected;
   const stateColor = isGatewayOffline ? theme.danger : theme.accent;
@@ -125,7 +127,8 @@ export function LiveScreen({
         <View style={[styles.liveVideoFrame, { borderColor: theme.border, backgroundColor: theme.surface }]}>
           <WebView
             ref={webViewRef}
-            source={{ uri: playerUrl, headers: requestHeaders }}
+            source={{ uri: playerUrl }}
+            basicAuthCredential={basicAuthCredential}
             style={styles.liveVideo}
             allowsInlineMediaPlayback
             javaScriptEnabled
@@ -261,7 +264,8 @@ export function LiveScreen({
           <View style={styles.liveFullscreenVideoWrap}>
             <WebView
               ref={fullscreenWebViewRef}
-              source={{ uri: playerUrl, headers: requestHeaders }}
+              source={{ uri: playerUrl }}
+              basicAuthCredential={basicAuthCredential}
               style={styles.liveFullscreenVideo}
               allowsInlineMediaPlayback
               javaScriptEnabled

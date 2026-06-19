@@ -12,11 +12,11 @@ export function signalingHttpBase(signalingUrl: string) {
   return signalingUrl.replace(/\/ws$/, "");
 }
 
-export async function fetchRuntimeCameraConfig(
+export async function fetchRuntimeCameras(
   signalingUrl: string,
-  fallbackCamera: CameraConfig,
+  fallbackCameras: CameraConfig[],
   authToken?: string | null,
-): Promise<CameraConfig> {
+): Promise<CameraConfig[]> {
   const baseUrl = signalingHttpBase(signalingUrl);
   const response = await fetch(`${baseUrl}/cameras`, {
     headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
@@ -37,17 +37,23 @@ export async function fetchRuntimeCameraConfig(
     }>;
   };
 
-  const firstCamera = payload.cameras?.[0];
-  if (!firstCamera?.streamName) {
-    return fallbackCamera;
+  const fallbackById = new Map(fallbackCameras.map((camera) => [camera.id, camera]));
+  const cameras = payload.cameras?.filter((camera) => camera.streamName) ?? [];
+  if (cameras.length === 0) {
+    return fallbackCameras;
   }
 
-  return {
-    id: firstCamera.id ?? fallbackCamera.id,
-    name: firstCamera.name ?? fallbackCamera.name,
-    location: firstCamera.location ?? fallbackCamera.location,
-    streamName: firstCamera.streamName,
-    gatewayHost: firstCamera.gatewayHost ?? fallbackCamera.gatewayHost,
-    gatewayAuthHeader: firstCamera.gatewayAuthHeader ?? fallbackCamera.gatewayAuthHeader,
-  };
+  return cameras.map((camera, index) => {
+    const fallback = fallbackById.get(camera.id ?? "") ?? fallbackCameras[index] ?? fallbackCameras[0];
+    return {
+      id: camera.id ?? `camera-${index + 1}`,
+      name: camera.name ?? fallback?.name ?? `Camera ${index + 1}`,
+      location: camera.location ?? fallback?.location ?? "",
+      streamName: camera.streamName!,
+      gatewayHost: camera.gatewayHost ?? fallback?.gatewayHost,
+      gatewayAuthHeader: camera.gatewayAuthHeader ?? fallback?.gatewayAuthHeader,
+      gatewayUsername: fallback?.gatewayUsername,
+      gatewayPassword: fallback?.gatewayPassword,
+    };
+  });
 }

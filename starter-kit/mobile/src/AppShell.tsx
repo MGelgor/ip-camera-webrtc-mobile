@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Appearance,
   Platform,
@@ -21,11 +21,11 @@ import { SettingsScreen } from "./screens/SettingsScreen";
 import { LiveScreen } from "./screens/LiveScreen";
 import { StatusScreen } from "./screens/StatusScreen";
 import { NotesScreen } from "./screens/NotesScreen";
-import { DEFAULT_CAMERA } from "./cameras";
+import { CAMERAS, DEFAULT_CAMERA } from "./cameras";
 import { getSignalingDefaults } from "./config";
 import { useSignalingConnection } from "./signaling/useSignalingConnection";
 import { getGo2RtcDefaults } from "./webrtc/config";
-import { fetchRuntimeCameraConfig } from "./runtime";
+import { fetchRuntimeCameras } from "./runtime";
 
 // AppShell is the orchestration layer.
 // It owns only:
@@ -43,6 +43,7 @@ export default function AppShell() {
   const [themeMode, setThemeMode] = useState<ThemeMode>("system");
   const [locale, setLocale] = useState<LocaleMode>("tr");
   const [profileOpen, setProfileOpen] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
 
   // Resolve the active theme from the OS theme and the user's selected preference.
   const theme = useMemo(
@@ -51,7 +52,9 @@ export default function AppShell() {
   );
   const copy = COPY[locale];
   const isRTL = locale === "ar";
+  const [cameras, setCameras] = useState(CAMERAS);
   const [selectedCamera, setSelectedCamera] = useState(DEFAULT_CAMERA);
+  const [cameraCatalogState, setCameraCatalogState] = useState<"loading" | "ready" | "error">("loading");
   const signalingDefaults = getSignalingDefaults(selectedCamera);
   const signaling = useSignalingConnection({
     url: signalingDefaults.url,
@@ -66,29 +69,37 @@ export default function AppShell() {
   useEffect(() => {
     let cancelled = false;
 
-    async function loadRuntimeCamera() {
+    async function loadRuntimeCameras() {
       try {
-        const runtimeCamera = await fetchRuntimeCameraConfig(
+        const runtimeCameras = await fetchRuntimeCameras(
           signalingDefaults.url,
-          DEFAULT_CAMERA,
+          CAMERAS,
           signalingDefaults.authToken,
         );
         if (!cancelled) {
-          setSelectedCamera(runtimeCamera);
+          setCameras(runtimeCameras);
+          setSelectedCamera((current) => runtimeCameras.find((camera) => camera.id === current.id) ?? runtimeCameras[0]);
+          setCameraCatalogState("ready");
         }
       } catch {
         if (!cancelled) {
+          setCameras(CAMERAS);
           setSelectedCamera(DEFAULT_CAMERA);
+          setCameraCatalogState("error");
         }
       }
     }
 
-    loadRuntimeCamera();
+    loadRuntimeCameras();
 
     return () => {
       cancelled = true;
     };
   }, [signalingDefaults.url]);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [view]);
 
   // These text styles flip alignment for Arabic, while keeping TR/EN left aligned.
   const contentTextStyle = isRTL ? styles.rtlText : styles.ltrText;
@@ -114,6 +125,7 @@ export default function AppShell() {
       <StatusBar style={theme === DARK_THEME ? "light" : "dark"} />
 
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={[
           styles.container,
           {
@@ -148,6 +160,11 @@ export default function AppShell() {
             theme={theme}
             contentTextStyle={contentTextStyle}
             isRTL={isRTL}
+            cameras={cameras}
+            selectedCameraId={selectedCamera.id}
+            cameraCatalogState={cameraCatalogState}
+            onSelectCamera={setSelectedCamera}
+            onOpenLive={() => setView("live")}
           />
         ) : null}
 
@@ -171,6 +188,7 @@ export default function AppShell() {
             cameraName={selectedCamera.name}
             cameraLocation={selectedCamera.location}
             requestHeaders={go2rtcDefaults.requestHeaders}
+            basicAuthCredential={go2rtcDefaults.basicAuthCredential}
           />
         ) : null}
 

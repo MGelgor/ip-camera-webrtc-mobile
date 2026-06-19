@@ -93,6 +93,7 @@ IP Kamera
 - [ ] Kullanici auth akisina bagli token dogrulamasi ekle
 - [ ] Oda/kamera yetkilendirmesi ekle
 - [x] Rate limit ve temel loglama ekle
+- [x] Gecici public tunnel ile gercek sertifikali WSS baglantisini fiziksel cihazda dogrula
 
 ### Mobil Uygulama
 
@@ -104,11 +105,23 @@ IP Kamera
 - [x] WebView ile go2rtc player canli goruntu
 - [x] Canli ekran loading/error/retry durumu
 - [x] Kamera config modelinin ilk hali
-- [ ] Kamera listesi ekranini gercek veriyle doldur
-- [ ] Kamera secimine gore player URL uret
-- [ ] Fiziksel Android cihazda test et
-- [ ] Tam ekran canli izleme modu ekle
+- [x] Kamera listesi ekranini gercek veriyle doldur
+- [x] Kamera secimine gore player URL uret
+- [x] Fiziksel Android cihazda test et
+- [x] Tam ekran canli izleme modu ekle
 - [ ] Native `react-native-webrtc` yolunu tekrar degerlendir
+
+### Mobil Test Notlari
+
+- 2026-06-19 testinde Samsung S24 FE (Android 16 / API 36) USB ADB ile baglandi.
+- Uygulama fiziksel telefona kuruldu; gateway auth aktifken `ofis_kamera` WebRTC
+  consumer'i olustu ve normal/tam ekran canli goruntu dogrulandi.
+- WebView alt kaynaklari ve WebSocket auth'u icin `basicAuthCredential` kullanildi.
+- Telefon `ws://10.0.2.128:3000/ws` signaling servisine baglandi, `ofis_kamera`
+  odasina `viewer` olarak katildi ve uye sayisi `1` goruldu.
+- 2026-06-19 testinde `/cameras` katalog yaniti Genel ekraninda listelendi. Secili
+  `Ofis Kamera` kaydindaki `Canli izle` komutu dogru player URL'sini acip `ws+udp`
+  consumer olusturdu.
 
 ### NAT / Dis Ag
 
@@ -120,6 +133,20 @@ IP Kamera
 - [ ] Mobil veri ile test et
 - [ ] Farkli Wi-Fi agindan test et
 - [ ] Port forwarding kullanmadan calisma senaryosunu dogrula
+
+### Dis Ag Test Notlari
+
+- 2026-06-19 testinde Mac sirket Wi-Fi aginda signaling servisini tum arayuzlerde
+  `:3000` portunda dinledi; macOS application firewall kapaliydi.
+- Samsung S24 FE Wi-Fi kapatilarak mobil veriye gecirildi. Telefon mobil internet
+  erisimini dogruladi, ancak sirketin public IP adresindeki `:3000` baglantisi zaman
+  asimina ugradi. Sirket router/NAT katmani inbound portu Mac'e yonlendirmiyor.
+- Bir sonraki hizli secenek router degisikligi gerektirmeyen outbound HTTPS/WSS
+  tunnel testidir. Kalici TURN icin yine public UDP erisimli sunucu gerekir.
+- 2026-06-19 tarihinde Cloudflare Quick Tunnel ile lokal signaling servisi public
+  HTTPS/WSS adresine tasindi. Samsung S24 FE Wi-Fi ayarlarindan kapatildi, 5G uzerinde
+  yeni Client ID alarak `ofis_kamera` odasina `viewer` olarak katildi. Bu test,
+  port forwarding olmadan signaling erisimini dogruladi; video/TURN erisimini degil.
 
 ### Guvenlik
 
@@ -135,12 +162,10 @@ IP Kamera
 
 ## 4. Siradaki En Mantikli Sira
 
-1. Fiziksel Android telefonu ayni Wi-Fi uzerinde auth aktif halde test et
-2. Kamera listesini UI tarafinda gercek modele bagla
-3. Signaling server'i gercek sertifika ile WSS destekleyecek sekilde deploy et
-4. Public VPS uzerinde coturn kur
-5. Mobil veri / farkli Wi-Fi testi yap
-6. Native WebRTC yolunu fiziksel cihazda tekrar dene
+1. Signaling server'i gercek sertifika ile WSS destekleyecek sekilde deploy et
+2. Public VPS uzerinde coturn kur
+3. Mobil veri / farkli Wi-Fi testi yap
+4. Native WebRTC yolunu fiziksel cihazda tekrar dene
 
 ## 5. Karar Notu
 

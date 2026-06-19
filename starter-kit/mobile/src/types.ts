@@ -71,6 +71,13 @@ export type AppCopy = {
     pending: { title: string; value: string };
     final: { title: string; value: string };
     roadmap: string[];
+    cameraListTitle: string;
+    cameraListSubtitle: string;
+    cameraSelectedLabel: string;
+    cameraLiveButton: string;
+    cameraLoadingLabel: string;
+    cameraErrorLabel: string;
+    cameraEmptyLabel: string;
   };
   setup: {
     title: string;

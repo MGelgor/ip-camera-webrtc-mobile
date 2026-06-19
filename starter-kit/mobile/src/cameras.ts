@@ -7,6 +7,8 @@ export type CameraConfig = {
   streamName: string;
   gatewayHost?: string;
   gatewayAuthHeader?: string;
+  gatewayUsername?: string;
+  gatewayPassword?: string;
 };
 
 export const CAMERAS: CameraConfig[] = [
@@ -15,6 +17,10 @@ export const CAMERAS: CameraConfig[] = [
     name: "Ofis Kamera",
     location: "Multitek test alani",
     streamName: "ofis_kamera",
+    gatewayHost: process.env.EXPO_PUBLIC_GATEWAY_HOST?.trim() || undefined,
+    gatewayAuthHeader: process.env.EXPO_PUBLIC_GO2RTC_AUTH_HEADER?.trim() || undefined,
+    gatewayUsername: process.env.EXPO_PUBLIC_GO2RTC_USERNAME?.trim() || undefined,
+    gatewayPassword: process.env.EXPO_PUBLIC_GO2RTC_PASSWORD?.trim() || undefined,
   },
 ];
 

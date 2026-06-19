@@ -1,6 +1,6 @@
 # Mobile Kismi
 
-Bu klasor, Android emulatorde calisan mobil kamera izleme uygulamasini tutar.
+Bu klasor, Android emulator ve fiziksel cihazda calisan mobil kamera izleme uygulamasini tutar.
 Uygulama React Native + Expo ile hazirlandi.
 
 ## Simdiki Durum
@@ -11,6 +11,8 @@ Uygulama React Native + Expo ile hazirlandi.
 - Signaling server baglantisi `Durum` sekmesinde calisiyor
 - go2rtc player `Canli` sekmesinde uygulama icinde aciliyor
 - Gercek kamera goruntusu artik mobil uygulama icinde gorulebiliyor
+- Samsung S24 FE uzerinde auth, WebRTC, tam ekran ve signaling baglantisi dogrulandi
+- `/cameras` katalogu Genel ekraninda listeleniyor ve secili kamera canli ekrana aktariliyor
 
 ## Canli Goruntu Nasil Calisiyor?
 
@@ -63,7 +65,8 @@ Projeyi ilerletmek icin daha stabil olan yol secildi:
 
 - `src/webrtc/config.ts`
   - go2rtc adreslerini tek yerde tutar.
-  - Android emulator icin `10.0.2.2` kullanilir.
+  - Emulator veya fiziksel cihaz adresleri `EXPO_PUBLIC_*` degiskenleriyle verilebilir.
+  - WebView Basic Auth bilgisi native `basicAuthCredential` ile aktarilir.
   - `playerUrl` su an aktif canli goruntu yoludur.
   - `wsUrl` ileride native WebRTC denemesi icin ayrilmistir.
 
@@ -100,6 +103,22 @@ PATH="/Applications/Android Studio.app/Contents/jbr/Contents/Home/bin:$PATH" \
 npm run android
 ```
 
+Fiziksel Android telefon USB ADB ile bagliyken:
+
+```bash
+npm run android:device
+```
+
+Gecici public WSS tunnel testi icin:
+
+```bash
+EXPO_PUBLIC_SIGNALING_URL="wss://<gecici-host>.trycloudflare.com/ws" npm run android:device
+```
+
+Bu script gateway cihazini hedef listesinden ayirir, yerel `.env` varsa yukler ve yoksa
+go2rtc test kimlik bilgisini bagli gateway start script'inden alir. Kimlik bilgisi repoya
+yazilmaz; bu akis yalnizca LAN gelistirme testi icindir.
+
 ## Kontrol Noktalari
 
 - go2rtc arayuzu: `http://localhost:1984`
@@ -108,13 +127,11 @@ npm run android
   `http://10.0.2.2:1984/stream.html?src=ofis_kamera`
 - Signaling health:
   `http://localhost:3000/health`
+- Fiziksel cihaz gateway player:
+  `http://10.1.1.3:1984/stream.html?src=ofis_kamera`
 
 ## Siradaki Eksikler
 
-1. Canli ekrani tek kamera icin daha temiz hale getirmek
-2. Kamera listesini gerçek veriyle doldurmak
-3. Kamera secimine gore `playerUrl` uretmek
-4. Signaling server'i go2rtc/player akisindan ayri olarak WebRTC mimarisi icin tamamlamak
-5. Dis ag icin TURN server eklemek
-6. Kullanici girisi ve yetkilendirme eklemek
-7. Sifreleri mobil uygulamaya koymadan backend/gateway tarafinda tutmak
+1. Dis ag icin TURN server eklemek
+2. Kullanici girisi ve yetkilendirme eklemek
+3. Sifreleri mobil uygulamaya koymadan backend/gateway tarafinda tutmak

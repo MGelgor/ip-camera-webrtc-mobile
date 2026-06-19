@@ -18,9 +18,13 @@ export function getGo2RtcDefaults(camera: CameraConfig) {
     // Stable preview endpoint. go2rtc already provides a browser player that
     // can play our RTSP camera through its own WebRTC/MSE/HLS pipeline.
     // In the Android emulator, 10.0.2.2 means "the Mac that runs the emulator".
-    playerUrl: `http://${host}:1984/stream.html?src=${encodedStreamName}&mode=mse`,
+    playerUrl: `http://${host}:1984/stream.html?src=${encodedStreamName}&mode=webrtc,mse`,
     streamStatusUrl: `http://${host}:1984/api/streams`,
     requestHeaders: camera.gatewayAuthHeader ? { Authorization: camera.gatewayAuthHeader } : undefined,
+    basicAuthCredential:
+      camera.gatewayUsername && camera.gatewayPassword
+        ? { username: camera.gatewayUsername, password: camera.gatewayPassword }
+        : undefined,
 
     streamName: camera.streamName,
   };

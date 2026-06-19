@@ -11,9 +11,9 @@ export const COPY: Record<LocaleMode, AppCopy> = {
     ],
     heroTitle: "Mobil Kamera İzleme",
     heroSubtitle:
-      "Kamera bilgileri henüz bağlı değil; ama uygulama iskeleti, gezinme yapısı ve bağlantı alanları hazır.",
+      "Kamera kataloğu, canlı görüntü ve signaling bağlantısı fiziksel Android cihazda hazır.",
     badges: {
-      device: { label: "Cihaz", value: "Android emülatör hazır" },
+      device: { label: "Cihaz", value: "Android cihaz hazır" },
       camera: { label: "Kamera", value: "Canli akis hazir" },
       network: { label: "Ag", value: "go2rtc bagli" },
     },
@@ -30,9 +30,9 @@ export const COPY: Record<LocaleMode, AppCopy> = {
     overview: {
       title: "Proje Durumu",
       subtitle:
-        "Bu panel, kamera bilgileri gelmeden önce uygulamanın çalışan iskeletidir.",
-      ready: { title: "Hazır parçalar", value: "UI iskeleti, sekmeler, yer tutucular" },
-      pending: { title: "Bekleyen parçalar", value: "Kamera IP, RTSP URL, signaling" },
+        "Aktif kameraları seçip doğrudan canlı izlemeye geçebilirsin.",
+      ready: { title: "Hazır parçalar", value: "Katalog, signaling, canlı görüntü" },
+      pending: { title: "Bekleyen parçalar", value: "Uzak erişim, kullanıcı yetkileri" },
       final: { title: "Hedef", value: "WebRTC canlı görüntü + uzaktan erişim" },
       roadmap: [
         "IP'ler hazır olunca kamera envanteri eklenecek.",
@@ -41,6 +41,13 @@ export const COPY: Record<LocaleMode, AppCopy> = {
         "Dış ağ ve mobil veri testleri için STUN/TURN açılacak.",
         "Panel; kamera, canlı görüntü ve ayar sayfalarına ayrılacak.",
       ],
+      cameraListTitle: "Kameralar",
+      cameraListSubtitle: "Signaling sunucusundan gelen aktif kamera kataloğu.",
+      cameraSelectedLabel: "Seçili",
+      cameraLiveButton: "Canlı izle",
+      cameraLoadingLabel: "Yükleniyor",
+      cameraErrorLabel: "Yerel veri",
+      cameraEmptyLabel: "Kamera bulunamadı.",
     },
     setup: {
       title: "Kurulum Kontrol Listesi",
@@ -174,9 +181,9 @@ export const COPY: Record<LocaleMode, AppCopy> = {
     ],
     heroTitle: "Mobile Camera View",
     heroSubtitle:
-      "Camera data is not connected yet, but the app shell, navigation structure, and connection slots are ready.",
+      "The camera catalog, live video, and signaling connection are ready on a physical Android device.",
     badges: {
-      device: { label: "Device", value: "Android emulator ready" },
+      device: { label: "Device", value: "Android device ready" },
       camera: { label: "Camera", value: "Live stream ready" },
       network: { label: "Network", value: "go2rtc connected" },
     },
@@ -193,9 +200,9 @@ export const COPY: Record<LocaleMode, AppCopy> = {
     overview: {
       title: "Project State",
       subtitle:
-        "This dashboard is the working shell for the camera app before camera details arrive.",
-      ready: { title: "Ready parts", value: "UI shell, tabs, placeholders" },
-      pending: { title: "Pending parts", value: "Camera IP, RTSP URL, signaling" },
+        "Select an active camera and open its live view directly.",
+      ready: { title: "Ready parts", value: "Catalog, signaling, live video" },
+      pending: { title: "Pending parts", value: "Remote access, user permissions" },
       final: { title: "Final target", value: "WebRTC live view + remote access" },
       roadmap: [
         "Add the camera inventory when the IPs are available.",
@@ -204,6 +211,13 @@ export const COPY: Record<LocaleMode, AppCopy> = {
         "Enable STUN/TURN for off-network and mobile-data tests.",
         "Split the dashboard into dedicated camera, live view, and settings pages.",
       ],
+      cameraListTitle: "Cameras",
+      cameraListSubtitle: "Active camera catalog provided by the signaling server.",
+      cameraSelectedLabel: "Selected",
+      cameraLiveButton: "Watch live",
+      cameraLoadingLabel: "Loading",
+      cameraErrorLabel: "Local data",
+      cameraEmptyLabel: "No cameras found.",
     },
     setup: {
       title: "Setup Checklist",
@@ -342,9 +356,9 @@ export const COPY: Record<LocaleMode, AppCopy> = {
     ],
     heroTitle: "عرض الكاميرا عبر الهاتف",
     heroSubtitle:
-      "لم يتم ربط بيانات الكاميرا بعد، لكن هيكل التطبيق والتنقل ومساحات الاتصال جاهزة.",
+      "قائمة الكاميرات والفيديو المباشر واتصال signaling جاهزة على جهاز Android فعلي.",
     badges: {
-      device: { label: "الجهاز", value: "المحاكي جاهز" },
+      device: { label: "الجهاز", value: "جهاز Android جاهز" },
       camera: { label: "الكاميرا", value: "البث المباشر جاهز" },
       network: { label: "الشبكة", value: "go2rtc متصل" },
     },
@@ -361,9 +375,9 @@ export const COPY: Record<LocaleMode, AppCopy> = {
     overview: {
       title: "حالة المشروع",
       subtitle:
-        "هذه اللوحة هي الهيكل العامل لتطبيق الكاميرا قبل وصول تفاصيل الكاميرا.",
-      ready: { title: "الأجزاء الجاهزة", value: "هيكل UI، التبويبات، العناصر المؤقتة" },
-      pending: { title: "الأجزاء المعلقة", value: "IP الكاميرا، RTSP، signaling" },
+        "اختر كاميرا نشطة وانتقل مباشرة إلى العرض المباشر.",
+      ready: { title: "الأجزاء الجاهزة", value: "القائمة، signaling، الفيديو المباشر" },
+      pending: { title: "الأجزاء المعلقة", value: "الوصول البعيد وصلاحيات المستخدم" },
       final: { title: "الهدف النهائي", value: "عرض مباشر عبر WebRTC + وصول عن بعد" },
       roadmap: [
         "إضافة قائمة الكاميرات عندما تصبح عناوين IP متاحة.",
@@ -372,6 +386,13 @@ export const COPY: Record<LocaleMode, AppCopy> = {
         "تفعيل STUN/TURN للاختبارات خارج الشبكة وبيانات الهاتف.",
         "تقسيم اللوحة إلى صفحات للكاميرا والعرض المباشر والإعدادات.",
       ],
+      cameraListTitle: "الكاميرات",
+      cameraListSubtitle: "قائمة الكاميرات النشطة من خادم signaling.",
+      cameraSelectedLabel: "محددة",
+      cameraLiveButton: "مشاهدة مباشرة",
+      cameraLoadingLabel: "جارٍ التحميل",
+      cameraErrorLabel: "بيانات محلية",
+      cameraEmptyLabel: "لم يتم العثور على كاميرات.",
     },
     setup: {
       title: "قائمة الإعداد",
@@ -506,9 +527,9 @@ export const COPY: Record<LocaleMode, AppCopy> = {
     ],
     heroTitle: "Мобильный просмотр камеры",
     heroSubtitle:
-      "Данные камеры еще не подключены, но каркас приложения, навигация и точки подключения уже готовы.",
+      "Каталог камер, прямое видео и signaling-соединение готовы на физическом Android-устройстве.",
     badges: {
-      device: { label: "Устройство", value: "Android-эмулятор готов" },
+      device: { label: "Устройство", value: "Android-устройство готово" },
       camera: { label: "Камера", value: "Прямой поток готов" },
       network: { label: "Сеть", value: "go2rtc подключен" },
     },
@@ -524,9 +545,9 @@ export const COPY: Record<LocaleMode, AppCopy> = {
     profileMenu: { about: "О приложении", settings: "Настройки", profile: "Профиль" },
     overview: {
       title: "Состояние проекта",
-      subtitle: "Эта панель показывает рабочий каркас приложения до подключения данных камеры.",
-      ready: { title: "Готово", value: "UI-каркас, вкладки, заглушки" },
-      pending: { title: "Ожидает", value: "IP камеры, RTSP URL, signaling" },
+      subtitle: "Выберите активную камеру и сразу откройте прямой эфир.",
+      ready: { title: "Готово", value: "Каталог, signaling, прямое видео" },
+      pending: { title: "Ожидает", value: "Удаленный доступ и права пользователей" },
       final: { title: "Цель", value: "WebRTC видео + удаленный доступ" },
       roadmap: [
         "После получения IP будет добавлен список камер.",
@@ -535,6 +556,13 @@ export const COPY: Record<LocaleMode, AppCopy> = {
         "Для внешней сети и мобильного интернета будет добавлен STUN/TURN.",
         "Панель разделится на отдельные экраны камеры, эфира и настроек.",
       ],
+      cameraListTitle: "Камеры",
+      cameraListSubtitle: "Активный каталог камер от signaling-сервера.",
+      cameraSelectedLabel: "Выбрана",
+      cameraLiveButton: "Смотреть эфир",
+      cameraLoadingLabel: "Загрузка",
+      cameraErrorLabel: "Локальные данные",
+      cameraEmptyLabel: "Камеры не найдены.",
     },
     setup: {
       title: "Чеклист установки",

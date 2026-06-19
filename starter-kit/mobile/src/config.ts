@@ -5,7 +5,8 @@ import type { CameraConfig } from "./cameras";
 // We start with hard-coded local development values so the emulator can connect
 // without any extra setup. Later, these defaults can be replaced by env values.
 export function getSignalingDefaults(camera: CameraConfig) {
-  const url = Platform.OS === "android" ? "ws://10.0.2.2:3000/ws" : "ws://localhost:3000/ws";
+  const defaultUrl = Platform.OS === "android" ? "ws://10.0.2.2:3000/ws" : "ws://localhost:3000/ws";
+  const url = process.env.EXPO_PUBLIC_SIGNALING_URL?.trim() || defaultUrl;
 
   return {
     // Android emulator cannot reach host localhost directly.
@@ -14,6 +15,6 @@ export function getSignalingDefaults(camera: CameraConfig) {
     room: camera.streamName,
     role: "viewer" as const,
     name: "mobile-viewer",
-    authToken: null as string | null,
+    authToken: process.env.EXPO_PUBLIC_SIGNALING_AUTH_TOKEN?.trim() || null,
   };
 }
