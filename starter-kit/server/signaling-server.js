@@ -22,6 +22,7 @@ const WebSocket = require(path.join(__dirname, "../mobile/node_modules/ws"));
 
 const PORT = Number(process.env.SIGNALING_PORT ?? process.env.PORT ?? 3000);
 const GATEWAY_HOST = process.env.GATEWAY_HOST ?? "10.1.1.3";
+const GATEWAY_PUBLIC_BASE_URL = (process.env.GATEWAY_PUBLIC_BASE_URL ?? "").replace(/\/$/, "");
 const GATEWAY_API_PORT = Number(process.env.GO2RTC_API_PORT ?? 1984);
 const GATEWAY_WEBRTC_PORT = Number(process.env.GO2RTC_WEBRTC_PORT ?? 8555);
 const CAMERA_STREAM_NAME = process.env.CAMERA_NAME ?? "ofis_kamera";
@@ -100,6 +101,8 @@ function takeRateLimit(req) {
 
 function cameraCatalog() {
   const encodedStreamName = encodeURIComponent(CAMERA_STREAM_NAME);
+  const gatewayBaseUrl = GATEWAY_PUBLIC_BASE_URL || `http://${GATEWAY_HOST}:${GATEWAY_API_PORT}`;
+  const gatewayWebSocketBaseUrl = gatewayBaseUrl.replace(/^https:/, "wss:").replace(/^http:/, "ws:");
   const gatewayAuthHeader =
     GO2RTC_API_USERNAME && GO2RTC_API_PASSWORD
       ? `Basic ${Buffer.from(`${GO2RTC_API_USERNAME}:${GO2RTC_API_PASSWORD}`, "utf8").toString("base64")}`
@@ -112,8 +115,9 @@ function cameraCatalog() {
       location: CAMERA_LOCATION,
       streamName: CAMERA_STREAM_NAME,
       gatewayHost: GATEWAY_HOST,
-      playerUrl: `http://${GATEWAY_HOST}:${GATEWAY_API_PORT}/stream.html?src=${encodedStreamName}`,
-      webrtcUrl: `ws://${GATEWAY_HOST}:${GATEWAY_API_PORT}/api/ws?src=${encodedStreamName}`,
+      gatewayBaseUrl,
+      playerUrl: `${gatewayBaseUrl}/stream.html?src=${encodedStreamName}`,
+      webrtcUrl: `${gatewayWebSocketBaseUrl}/api/ws?src=${encodedStreamName}`,
       gatewayWebRtcPort: GATEWAY_WEBRTC_PORT,
       gatewayAuthHeader,
       room: CAMERA_STREAM_NAME,

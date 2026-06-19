@@ -63,9 +63,28 @@ if [[ ! -d node_modules ]]; then
   npm ci
 fi
 
+# React Native's Gradle plugins currently require an LTS JDK. On macOS, prefer
+# the JDK bundled with Android Studio instead of a newer system Java runtime.
+ANDROID_STUDIO_JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+if [[ "$(uname -s)" == "Darwin" && -x "${ANDROID_STUDIO_JAVA_HOME}/bin/java" ]]; then
+  export JAVA_HOME="${ANDROID_JAVA_HOME:-${ANDROID_STUDIO_JAVA_HOME}}"
+  export PATH="${JAVA_HOME}/bin:${PATH}"
+fi
+
+DEFAULT_ANDROID_SDK_ROOT="${HOME}/Library/Android/sdk"
+if [[ -z "${ANDROID_HOME:-}" && -d "${DEFAULT_ANDROID_SDK_ROOT}" ]]; then
+  export ANDROID_HOME="${DEFAULT_ANDROID_SDK_ROOT}"
+fi
+if [[ -n "${ANDROID_HOME:-}" ]]; then
+  export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME}}"
+  export PATH="${ANDROID_HOME}/platform-tools:${PATH}"
+fi
+
 echo "Android hedefi: ${ANDROID_SERIAL}"
 echo "Gateway: ${EXPO_PUBLIC_GATEWAY_HOST}:1984"
 echo "Signaling: ${EXPO_PUBLIC_SIGNALING_URL}"
+echo "Java: $(java -version 2>&1 | head -n 1)"
+echo "Android SDK: ${ANDROID_HOME:-tanimli degil}"
 
 npx expo prebuild --platform android
 

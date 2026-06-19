@@ -130,9 +130,9 @@ IP Kamera
 - [x] Lokal Docker ile coturn ayağa kaldir ve portlarini dogrula
 - [ ] Bulutta coturn kur
 - [ ] TURN username/password veya token ekle
-- [ ] Mobil veri ile test et
+- [x] Mobil veri ile signaling ve gecici tunnel video testi yap
 - [ ] Farkli Wi-Fi agindan test et
-- [ ] Port forwarding kullanmadan calisma senaryosunu dogrula
+- [x] Port forwarding kullanmadan gecici tunnel senaryosunu dogrula
 
 ### Dis Ag Test Notlari
 
@@ -147,6 +147,14 @@ IP Kamera
   HTTPS/WSS adresine tasindi. Samsung S24 FE Wi-Fi ayarlarindan kapatildi, 5G uzerinde
   yeni Client ID alarak `ofis_kamera` odasina `viewer` olarak katildi. Bu test,
   port forwarding olmadan signaling erisimini dogruladi; video/TURN erisimini degil.
+- Ayni test yeni bir Quick Tunnel adresiyle tekrarlandi. Public `health` ve `cameras`
+  endpointleri ile WSS el sikismasi dogrulandi; fiziksel telefon 5G uzerinden
+  `mobile-viewer` olarak odaya katildi.
+- go2rtc `:1984` HTTP/WebSocket yuzu ayri bir outbound Quick Tunnel ile yayinlandi.
+  Telefon Wi-Fi kapali ve 5G uzerindeyken WebView player gercek kamera goruntusunu
+  acti; gateway tarafinda aktif consumer olustugu dogrulandi. Bu gecici MSE/WebSocket
+  demo yolu TURN kurulumunun yerini tutmaz ve production icin kalici tunnel/domain
+  ile erisim politikasi gerektirir.
 
 ### Guvenlik
 
@@ -155,8 +163,8 @@ IP Kamera
 - [x] go2rtc API auth
 - [x] Signaling icin opsiyonel auth destegi
 - [x] HTTPS/WSS icin kod ve script hazirligi
-- [ ] HTTPS
-- [ ] WSS
+- [x] Gecici public HTTPS/WSS dis ag testi
+- [ ] Kalici domain ve production HTTPS/WSS kurulumu
 - [ ] Kamera bilgilerini mobil istemciye acmama kontrolu
 - [ ] Uretim loglarinda RTSP URL/sifre maskeleme
 
