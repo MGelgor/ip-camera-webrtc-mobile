@@ -70,7 +70,14 @@ Cunku native `react-native-webrtc` denemesi Android emulator tarafinda native cr
 ## Yardimci Scriptler
 
 ### `./start-signaling.sh`
-`.env` dosyasini yukleyip signaling server'i baslatir.
+Eksikse `npm ci` ile server bagimliliklarini kurar, `.env` dosyasini yukler ve
+signaling server'i baslatir.
+
+Regresyon testleri:
+
+```bash
+npm test
+```
 
 ### `./generate-dev-cert.sh`
 Lokal HTTPS/WSS testi icin self-signed sertifika uretir.

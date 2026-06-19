@@ -1,0 +1,12 @@
+{
+  "name": "starter-kit-signaling-server",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node signaling-server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "ws": "7.5.11"
+  }
+}

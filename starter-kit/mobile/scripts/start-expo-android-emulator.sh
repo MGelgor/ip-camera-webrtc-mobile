@@ -7,6 +7,8 @@ set -eu
 ANDROID_SERIAL="${ANDROID_SERIAL:-emulator-5554}"
 export ANDROID_SERIAL
 
+unset npm_config_prefix
+
 if [ -n "${NVM_DIR:-}" ] && [ -s "${NVM_DIR}/nvm.sh" ]; then
   # shellcheck disable=SC1090
   . "${NVM_DIR}/nvm.sh"

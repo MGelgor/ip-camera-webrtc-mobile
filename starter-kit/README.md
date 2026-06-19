@@ -93,6 +93,21 @@ Gerekli kontrol adresleri:
 go2rtc API basic auth aktiftir. Mobil uygulama bu auth bilgisini signaling server'in
 `/cameras` katalog cevabindan alir ve header olarak kullanir.
 
+## Signaling Server'i Calistirma
+
+```bash
+cd server
+./start-signaling.sh
+```
+
+Script ilk calismada kendi Node.js bagimliliklarini otomatik kurar. Oda gecisi,
+ayrilma ve yeniden katilma regresyon testi icin:
+
+```bash
+cd server
+npm test
+```
+
 ## PDF ile Uyum Notu
 
 PDF'in ana mimarisi native WebRTC client hedefler:
