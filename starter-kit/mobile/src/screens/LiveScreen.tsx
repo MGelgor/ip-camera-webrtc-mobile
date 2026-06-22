@@ -48,8 +48,9 @@ export function LiveScreen({
 }: Props) {
   const webViewRef = useRef<WebViewType>(null);
   const fullscreenWebViewRef = useRef<WebViewType>(null);
+  const gatewayFailureCount = useRef(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [hasLoadError, setHasLoadError] = useState(false);
+  const [hasPlayerLoadError, setHasPlayerLoadError] = useState(false);
   const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
   const [isGatewayOffline, setIsGatewayOffline] = useState(false);
   const [useWebViewFallback, setUseWebViewFallback] = useState(!nativeWebRtcEnabled);
@@ -61,11 +62,13 @@ export function LiveScreen({
     enabled: nativeWebRtcEnabled,
   });
   const nativeStreamUrl = nativeWebRtc.remoteStreamUrl;
+  const hasLoadError = hasPlayerLoadError || isGatewayOffline;
 
   function reloadPlayer() {
-    setHasLoadError(false);
+    setHasPlayerLoadError(false);
     setIsLoading(true);
     setIsGatewayOffline(false);
+    gatewayFailureCount.current = 0;
     setUseWebViewFallback(!nativeWebRtcEnabled);
     if (nativeWebRtcEnabled) {
       nativeWebRtc.disconnect();
@@ -84,7 +87,7 @@ export function LiveScreen({
     if (nativeStreamUrl) {
       setUseWebViewFallback(false);
       setIsLoading(false);
-      setHasLoadError(false);
+      setHasPlayerLoadError(false);
       return;
     }
 
@@ -128,19 +131,23 @@ export function LiveScreen({
         const stream = payload[streamName];
         const hasProducer = Array.isArray(stream?.producers) && stream!.producers!.length > 0;
 
-        if (!cancelled) {
-          const offline = !hasProducer;
-          setIsGatewayOffline(offline);
-          if (offline) {
-            setHasLoadError(true);
+        if (!cancelled && hasProducer) {
+          gatewayFailureCount.current = 0;
+          setIsGatewayOffline(false);
+        } else if (!cancelled) {
+          gatewayFailureCount.current += 1;
+          if (gatewayFailureCount.current >= 3) {
+            setIsGatewayOffline(true);
             setIsLoading(false);
           }
         }
       } catch {
         if (!cancelled) {
-          setIsGatewayOffline(true);
-          setHasLoadError(true);
-          setIsLoading(false);
+          gatewayFailureCount.current += 1;
+          if (gatewayFailureCount.current >= 3) {
+            setIsGatewayOffline(true);
+            setIsLoading(false);
+          }
         }
       }
     }
@@ -206,15 +213,16 @@ export function LiveScreen({
               startInLoadingState
               onLoadStart={() => {
                 setIsLoading(true);
-                setHasLoadError(false);
+                setHasPlayerLoadError(false);
                 setIsGatewayOffline(false);
+                gatewayFailureCount.current = 0;
               }}
               onLoadEnd={() => {
                 setIsLoading(false);
               }}
               onError={() => {
                 setIsLoading(false);
-                setHasLoadError(true);
+                setHasPlayerLoadError(true);
               }}
             />
           ) : null}

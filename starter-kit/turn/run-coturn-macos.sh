@@ -61,6 +61,6 @@ exec "${TURN_SERVER_BIN}" -n \
   --no-multicast-peers \
   --no-tls \
   --no-dtls \
-  --stale-nonce 600 \
+  --stale-nonce=600 \
   --log-file stdout \
   --simple-log

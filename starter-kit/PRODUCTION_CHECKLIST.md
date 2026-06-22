@@ -132,7 +132,7 @@ IP Kamera
 - [x] Tam ekran canli izleme modu ekle
 - [x] Login ekrani ve kisa omurlu signaling session'i ekle
 - [x] Native SDP/ICE akisini signaling server uzerinden go2rtc'ye koprule
-- [ ] Yeni login -> katalog -> player akisinin Samsung S24 FE'de testini tamamla
+- [x] Yeni login -> katalog -> player akisinin Samsung S24 FE'de testini tamamla
 - [ ] Native WebRTC'yi Samsung S24 FE'de ayri build ile dogrula
 - [ ] Native basarisizken otomatik WebView fallback'ini cihazda dogrula
 - [x] Android 16 native WebRTC SIGABRT durumunda native yolu cihaz seviyesinde kapat
@@ -148,6 +148,14 @@ IP Kamera
   gateway consumer ve tam ekran testlerini crash olmadan gecti. PDF 6.3 WebView'i
   alternatif WebRTC istemci kabi olarak kabul ettigi icin stabil yol WebView olarak
   tutuldu; native final hedefi Android 16 uyumlu kutuphane gelene kadar kapali.
+- 2026-06-22 public WS APK testi Wi-Fi kapali ve 5G aktifken tekrarlandi. Public
+  `:13000` signaling uzerinden login, katalog ve WebView icindeki WebRTC canli
+  goruntu calisti; uygulama process'i ayakta kaldi ve gateway `1 producer / 1
+  consumer` raporladi. Yanlis TURN kullanici kaydi duzeltildikten sonra mobil
+  logdaki TURN authentication hatasi kayboldu.
+- Gateway durum kontrolundeki tek seferlik hata artik canli videoyu hemen kapatmaz;
+  offline katmani art arda uc basarisiz kontrolden sonra gosterilir ve durum
+  duzeldiginde otomatik toparlanir.
 
 - 2026-06-19 testinde Samsung S24 FE (Android 16 / API 36) USB ADB ile baglandi.
 - Uygulama fiziksel telefona kuruldu; gateway auth aktifken `ofis_kamera` WebRTC
@@ -182,7 +190,8 @@ IP Kamera
   kullanilacak. Bu asama sifresiz `ws://` oldugu icin yalnizca kontrollu debug
   testidir; sonraki guvenlik asamasinda ayni public port WSS/TLS arkasina alinacak.
 - Public WS arm64 debug APK akisi `npm run android:build:public-ws` olarak eklendi.
-  Router mapping ve fiziksel telefon ADB baglantisi olmadigi icin 5G testi bekliyor.
+  `13000/TCP -> Mac:3000/TCP` router mapping'i ile fiziksel Samsung S24 FE'de 5G
+  login, katalog, player ve canli goruntu testi tamamlandi.
 
 - 2026-06-19 testinde Mac sirket Wi-Fi aginda signaling servisini tum arayuzlerde
   `:3000` portunda dinledi; macOS application firewall kapaliydi.
@@ -242,11 +251,10 @@ IP Kamera
 
 ## 4. Siradaki En Mantikli Sira
 
-1. Samsung S24 FE'yi ADB ile baglayip yeni login/WebView ve native/fallback testlerini tamamla
-2. Gateway ADB yetkilendirmesini cihaz tarafindan yenile; medya servisi su an ayakta
-3. Quick Tunnel yerine kalici WSS named tunnel/domain kararini uygula
-4. TURN adresi icin statik IP veya DDNS kararini uygula
-5. Farkli Wi-Fi agindan test et
+1. Android 16 uyumlu bir native WebRTC surumuyle native/fallback yolunu yeniden test et
+2. Mevcut public IP degisirse manuel guncelleme veya DDNS secenegini degerlendir
+3. Production asamasinda public signaling'i WSS/TLS arkasina al
+4. Farkli Wi-Fi agindan test et
 
 ## 5. Karar Notu
 
