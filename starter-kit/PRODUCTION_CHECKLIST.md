@@ -58,6 +58,11 @@ IP Kamera
 
 ### Gateway Test Notlari
 
+- 2026-06-22 kontrolunde gateway `10.1.1.3:1984` kimlik dogrulamali API'si 200
+  dondu ve `ofis_kamera` icin bir aktif producer raporladi. ADB `:5555` portu agda
+  acik olsa da transport offline kaldi; reconnect sonrasi ADB oturumu geri gelmedi.
+  Gateway medya servisi calisiyor, cihaz shell erisimi yeniden yetkilendirme bekliyor.
+
 - Kamera web arayuzu `viewer_index.asp` Flash eklentisi istiyor. Bu sayfa dogrulama icin
   referans alinmayacak.
 - Dogru kaynak VLC'de calisan RTSP adresidir.
@@ -88,14 +93,28 @@ IP Kamera
 - [x] WebSocket `/ws` ekle
 - [x] `join`, `leave`, `offer`, `answer`, `ice-candidate` relay et
 - [x] HTTPS/WSS destegi icin TLS alanlarini ve start script'ini ekle
-- [x] Opsiyonel bearer token dogrulamasi destegi ekle
+- [x] Zorunlu bearer/session token dogrulamasi ekle
 - [ ] HTTPS/WSS'i gercek sertifika ile aktif et
-- [ ] Kullanici auth akisina bagli token dogrulamasi ekle
-- [ ] Oda/kamera yetkilendirmesi ekle
+- [x] Kullanici auth akisina bagli kisa omurlu token dogrulamasi ekle
+- [x] Tek katalog kamerasi icin oda/kamera yetkilendirmesi ekle
 - [x] Rate limit ve temel loglama ekle
+- [x] Login brute-force icin ayri rate limit ekle
+- [x] Session/rate-limit bellek kayitlarini sureli temizle ve ust sinir koy
 - [x] Gecici public tunnel ile gercek sertifikali WSS baglantisini fiziksel cihazda dogrula
 - [x] Yerel signaling'i Mac kullanici oturumu acildiginda otomatik baslat
 - [ ] Named tunnel'i Mac reboot sonrasi otomatik baslat
+
+### 2026-06-22 Servis Dogrulamasi
+
+- `com.multitek.ip-camera.signaling` ve `com.multitek.ip-camera.metro` LaunchAgent
+  olarak kuruldu; Node.js `v25.2.1` ile calisiyor.
+- Signaling `*:3000`, Metro `*:8081` dinliyor; LaunchAgent error loglari bos.
+- Signaling process'ine `SIGTERM` gonderildikten sonra LaunchAgent yeni PID ile yeniden
+  baslatti ve `/health` tekrar 200 dondu; `KeepAlive` davranisi dogrulandi.
+- Login, `/cameras`, `/player` ve `/gateway/status` zinciri gercek lokal `.env` ile
+  200 dondu. Katalog/status yanitlarinda gateway/RTSP credential sizintisi gorulmedi.
+- `.env`, izinleri `600` olan Application Support yedegine alindi; init/backup/restore
+  akisi `services/manage-env-macos.sh` ile tanimlandi.
 
 ### Mobil Uygulama
 
@@ -111,10 +130,24 @@ IP Kamera
 - [x] Kamera secimine gore player URL uret
 - [x] Fiziksel Android cihazda test et
 - [x] Tam ekran canli izleme modu ekle
+- [x] Login ekrani ve kisa omurlu signaling session'i ekle
+- [x] Native SDP/ICE akisini signaling server uzerinden go2rtc'ye koprule
+- [ ] Yeni login -> katalog -> player akisinin Samsung S24 FE'de testini tamamla
+- [ ] Native WebRTC'yi Samsung S24 FE'de ayri build ile dogrula
+- [ ] Native basarisizken otomatik WebView fallback'ini cihazda dogrula
+- [x] Android 16 native WebRTC SIGABRT durumunda native yolu cihaz seviyesinde kapat
+- [x] Mobil veride erisilemeyen LAN signaling icin sonsuz login yerine 10 saniye timeout ekle
 - [ ] Metro/USB gerektirmeyen imzali Android release build uret
 - [ ] Native `react-native-webrtc` yolunu tekrar degerlendir
 
 ### Mobil Test Notlari
+
+- 2026-06-22 testinde native-acik APK, Samsung S24 FE Android 16'da canli ekran
+  acilirken `libjingle_peerconnection_so.so` network thread uzerinde SIGABRT ile
+  tekrar tekrar kapandi. Ayni cihazda WebView build'i login, katalog, canli goruntu,
+  gateway consumer ve tam ekran testlerini crash olmadan gecti. PDF 6.3 WebView'i
+  alternatif WebRTC istemci kabi olarak kabul ettigi icin stabil yol WebView olarak
+  tutuldu; native final hedefi Android 16 uyumlu kutuphane gelene kadar kapali.
 
 - 2026-06-19 testinde Samsung S24 FE (Android 16 / API 36) USB ADB ile baglandi.
 - Uygulama fiziksel telefona kuruldu; gateway auth aktifken `ofis_kamera` WebRTC
@@ -194,15 +227,19 @@ IP Kamera
 - [x] go2rtc auth bilgisini mobil uygulama paketinden cikarip signaling player/proxy arkasina al
 - [x] TURN ve kamera parolalarinin mobil build-time environment'ina aktarilmasini kaldir
 - [x] Statik signaling admin tokenini APK'dan cikarip kisa omurlu login session'i ekle
+- [x] Mobil WebSocket session tokenini URL query yerine Authorization header ile gonder
+- [x] Player cookie yetkisini yalnizca player WebSocket oturumuna sinirla
+- [x] Login icin ayri rate limit ve guvenli proxy-IP politikasi ekle
 - [ ] Lokal `.env` kullanicisini production kullanici veritabani ve kamera yetkileriyle degistir
 - [ ] Uretim loglarinda RTSP URL/sifre maskeleme
 
 ## 4. Siradaki En Mantikli Sira
 
-1. Signaling server'i gercek sertifika ile WSS destekleyecek sekilde deploy et
-2. Signaling tokenini kullanici auth akisina bagla
-3. Farkli Wi-Fi agindan test et
-4. Native WebRTC yolunu fiziksel cihazda tekrar degerlendir
+1. Samsung S24 FE'yi ADB ile baglayip yeni login/WebView ve native/fallback testlerini tamamla
+2. Gateway ADB yetkilendirmesini cihaz tarafindan yenile; medya servisi su an ayakta
+3. Quick Tunnel yerine kalici WSS named tunnel/domain kararini uygula
+4. TURN adresi icin statik IP veya DDNS kararini uygula
+5. Farkli Wi-Fi agindan test et
 
 ## 5. Karar Notu
 

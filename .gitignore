@@ -33,6 +33,7 @@ starter-kit/server/certs/
 # temporary screenshots and local artifacts
 .tmp-*
 *.tmp
+tmp/pdfs/current_review/
 
 # local reference docs not for repo
 ip_kamera_webrtc_mobil_1 (1).pdf

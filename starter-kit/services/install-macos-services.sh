@@ -16,7 +16,19 @@ SIGNALING_PLIST="${LAUNCH_AGENTS_DIR}/${SIGNALING_LABEL}.plist"
 METRO_PLIST="${LAUNCH_AGENTS_DIR}/${METRO_LABEL}.plist"
 
 mkdir -p "${LAUNCH_AGENTS_DIR}" "${LOG_DIR}" "${INSTALLED_STARTER_DIR}"
-chmod 755 "${SCRIPT_DIR}/run-signaling-macos.sh" "${SCRIPT_DIR}/run-metro-macos.sh"
+if [[ ! -f "${STARTER_DIR}/.env" ]]; then
+  echo "Gercek ortam dosyasi bulunamadi: ${STARTER_DIR}/.env" >&2
+  echo "Once services/restore-env-macos.sh veya services/create-env-macos.sh kullanin." >&2
+  exit 1
+fi
+if [[ "$(stat -f '%Lp' "${STARTER_DIR}/.env")" != "600" ]]; then
+  echo "Guvenlik icin ${STARTER_DIR}/.env izni 600 olmalidir." >&2
+  echo "Duzeltmek icin: chmod 600 '${STARTER_DIR}/.env'" >&2
+  exit 1
+fi
+
+chmod 755 "${SCRIPT_DIR}/run-signaling-macos.sh" "${SCRIPT_DIR}/run-metro-macos.sh" \
+  "${SCRIPT_DIR}/resolve-node-macos.sh"
 
 # launchd cannot access projects under Desktop without additional macOS privacy
 # permissions. Install a runtime copy under Application Support instead.
@@ -53,7 +65,8 @@ fi
 
 chmod 600 "${INSTALLED_STARTER_DIR}/.env"
 chmod 755 "${INSTALLED_SERVICES_DIR}/run-signaling-macos.sh" \
-  "${INSTALLED_SERVICES_DIR}/run-metro-macos.sh"
+  "${INSTALLED_SERVICES_DIR}/run-metro-macos.sh" \
+  "${INSTALLED_SERVICES_DIR}/resolve-node-macos.sh"
 
 write_plist() {
   local label="$1"
@@ -116,9 +129,29 @@ write_plist \
 for label in "${SIGNALING_LABEL}" "${METRO_LABEL}"; do
   launchctl bootout "${DOMAIN}/${label}" >/dev/null 2>&1 || true
 done
+sleep 1
 
-launchctl bootstrap "${DOMAIN}" "${SIGNALING_PLIST}"
-launchctl bootstrap "${DOMAIN}" "${METRO_PLIST}"
+bootstrap_service() {
+  local label="$1"
+  local plist="$2"
+  local attempt=""
+
+  for attempt in 1 2 3; do
+    if launchctl bootstrap "${DOMAIN}" "${plist}" >/dev/null 2>&1; then
+      return 0
+    fi
+    if launchctl print "${DOMAIN}/${label}" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  echo "LaunchAgent bootstrap basarisiz: ${label}" >&2
+  launchctl bootstrap "${DOMAIN}" "${plist}"
+}
+
+bootstrap_service "${SIGNALING_LABEL}" "${SIGNALING_PLIST}"
+bootstrap_service "${METRO_LABEL}" "${METRO_PLIST}"
 launchctl enable "${DOMAIN}/${SIGNALING_LABEL}"
 launchctl enable "${DOMAIN}/${METRO_LABEL}"
 launchctl kickstart -k "${DOMAIN}/${SIGNALING_LABEL}"

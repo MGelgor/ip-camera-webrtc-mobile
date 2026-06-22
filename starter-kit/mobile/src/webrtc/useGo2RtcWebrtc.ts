@@ -46,16 +46,17 @@ function safeState(status: WebRtcState, connected: boolean) {
   return status;
 }
 
-function withToken(url: string, authToken?: string | null) {
-  if (!authToken) return url;
-
-  try {
-    const parsed = new URL(url);
-    parsed.searchParams.set("token", authToken);
-    return parsed.toString();
-  } catch {
-    return url;
-  }
+function openWebSocket(url: string, authToken?: string | null) {
+  const ReactNativeWebSocket = WebSocket as unknown as new (
+    socketUrl: string,
+    protocols?: string | string[],
+    options?: { headers?: Record<string, string> },
+  ) => WebSocket;
+  return new ReactNativeWebSocket(
+    url,
+    undefined,
+    authToken ? { headers: { Authorization: `Bearer ${authToken}` } } : undefined,
+  );
 }
 
 // This hook creates the native RTCPeerConnection while the signaling server
@@ -151,7 +152,7 @@ export function useGo2RtcWebrtc({
       lastMessage: `${timestamp()} · go2rtc bağlantısı deneniyor.`,
     }));
 
-    const socket = new WebSocket(withToken(wsUrl, authToken));
+    const socket = openWebSocket(wsUrl, authToken);
     wsRef.current = socket;
     socket.onopen = () => {
       if (closingByUserRef.current) return;

@@ -76,6 +76,7 @@ function httpRequest(port, path, token = null, options = {}) {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
           ...(options.body ? { "Content-Type": "application/json" } : {}),
+          ...(options.headers ?? {}),
         },
       },
       (response) => {
@@ -214,6 +215,11 @@ test("viewer SDP and ICE are bridged to authenticated go2rtc", async (context) =
   assert.doesNotMatch(authorizedPlayer.body, /gateway-pass|admin:secret/);
 
   const playerCookie = authorizedPlayer.headers["set-cookie"][0].split(";")[0];
+  const cookieCannotReadCatalog = await httpJson(signalingPort, "/cameras", null, {
+    headers: { Cookie: playerCookie },
+  });
+  assert.equal(cookieCannotReadCatalog.statusCode, 401);
+
   const cookieSocket = new WebSocket(`ws://127.0.0.1:${signalingPort}/ws`, {
     headers: { Cookie: playerCookie },
   });
@@ -234,9 +240,15 @@ test("viewer SDP and ICE are bridged to authenticated go2rtc", async (context) =
   assert.equal(unauthorizedClose.code, 1008);
   assert.equal(unauthorizedClose.reason, "Unauthorized");
 
-  const mobile = new WebSocket(
+  const queryTokenSocket = new WebSocket(
     `ws://127.0.0.1:${signalingPort}/ws?token=${encodeURIComponent(accessToken)}`,
   );
+  const queryTokenClose = await waitForClose(queryTokenSocket);
+  assert.equal(queryTokenClose.code, 1008);
+
+  const mobile = new WebSocket(`ws://127.0.0.1:${signalingPort}/ws`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
   context.after(() => mobile.close());
   await waitForMessage(mobile, (message) => message.type === "connected");
 
@@ -267,6 +279,20 @@ test("viewer SDP and ICE are bridged to authenticated go2rtc", async (context) =
     gatewayAuthorization,
     `Basic ${Buffer.from("gateway-user:gateway-pass").toString("base64")}`,
   );
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const retry = await httpJson(signalingPort, "/auth/login", null, {
+      method: "POST",
+      body: { username: LOGIN_USERNAME, password: "wrong-password" },
+    });
+    assert.equal(retry.statusCode, 401);
+  }
+  const rateLimitedLogin = await httpJson(signalingPort, "/auth/login", null, {
+    method: "POST",
+    body: { username: LOGIN_USERNAME, password: "wrong-password" },
+  });
+  assert.equal(rateLimitedLogin.statusCode, 429);
+  assert.equal(rateLimitedLogin.body.error, "Too many login attempts");
 });
 
 test("server refuses to start without a strong signaling token", async () => {

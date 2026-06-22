@@ -73,8 +73,11 @@ export default function AppShell() {
     signalingDefaults.url,
     signalingDefaults.authToken,
   );
-  const nativeWebRtcEnabled =
+  const nativeWebRtcRequested =
     process.env.EXPO_PUBLIC_NATIVE_WEBRTC_ENABLED?.trim().toLowerCase() === "true";
+  const nativeWebRtcEnabled =
+    nativeWebRtcRequested &&
+    !(Platform.OS === "android" && Number(Platform.Version) >= 36);
 
   async function login(username: string, password: string) {
     const session = await loginToSignaling(signalingDefaults.url, username, password);

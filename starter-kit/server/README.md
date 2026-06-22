@@ -87,13 +87,20 @@ Cunku native `react-native-webrtc` denemesi hedef Android 16 cihazda native cras
     icin kisa omurlu session tokeni uretir
 - Yetkili endpointler
   - admin tokenini veya gecerli session tokenini bearer olarak kabul eder
-  - WebSocket tarafinda `?token=...` query param de kabul edilir
+  - mobil WebSocket tokenini URL'e yazmaz; `Authorization` header kullanir
+  - WebView player yalnizca kendi HttpOnly, kisa omurlu cookie'siyle `/ws` acar
 - `SIGNALING_TLS_CERT_PATH`
 - `SIGNALING_TLS_KEY_PATH`
   - ikisi de doluysa server `https` ve `wss` olarak ayaga kalkar
 - `SIGNALING_RATE_LIMIT_WINDOW_MS`
 - `SIGNALING_RATE_LIMIT_MAX_REQUESTS`
   - HTTP ve WebSocket girisleri icin basit IP bazli oran siniri uygular
+- `SIGNALING_LOGIN_RATE_LIMIT_WINDOW_MS`
+- `SIGNALING_LOGIN_RATE_LIMIT_MAX_REQUESTS`
+  - login brute-force denemeleri icin genel trafikten ayri oran siniri uygular
+- `SIGNALING_TRUST_PROXY=true`
+  - yalnizca loopback'ten baglanan guvenilir reverse proxy icin
+    `CF-Connecting-IP`/`X-Forwarded-For` basliklarini istemci IP'si olarak kabul eder
 
 ## Yardimci Scriptler
 

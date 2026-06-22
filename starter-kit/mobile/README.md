@@ -123,6 +123,17 @@ Bu script gateway cihazini hedef listesinden ayirir ve yerel `.env` icindeki sig
 adresiyle mobil build'i olusturur. Signaling admin tokenini, login parolasini, go2rtc ve
 TURN parolalarini Expo public degiskenlerine aktarmaz.
 
+ADB hedefi olmadan, yerel `.env` icindeki signaling ve native/WebView secimini
+bundle'a alarak debug APK uretmek icin:
+
+```bash
+./scripts/build-android-debug.sh
+```
+
+Betik varsayilan olarak fiziksel Samsung hedefi icin yalnizca `arm64-v8a` APK
+uretir. Universal debug APK gerekirse `ANDROID_ABIS=arm64-v8a,armeabi-v7a,x86,x86_64`
+ile override edilebilir.
+
 Uygulama her yeniden acildiginda giris ister. Session tokeni yalnizca uygulama belleginde
 tutulur ve server tarafinda 60 dakika sonra gecersiz olur.
 

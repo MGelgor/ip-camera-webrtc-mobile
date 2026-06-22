@@ -4,15 +4,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STARTER_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-NODE_BIN_DIR=""
-for candidate in "${HOME}"/.nvm/versions/node/v20.*/bin; do
-  if [[ -x "${candidate}/node" ]]; then
-    NODE_BIN_DIR="${candidate}"
-  fi
-done
-
-if [[ -z "${NODE_BIN_DIR}" ]]; then
-  echo "Node.js 20 bulunamadi: ${HOME}/.nvm/versions/node/v20.*/bin/node"
+source "${SCRIPT_DIR}/resolve-node-macos.sh"
+if ! NODE_BIN_DIR="$(resolve_node_bin_dir)"; then
+  echo "Node.js 20 veya daha yeni bir surum bulunamadi. NODE_BINARY ile yolu belirtin."
   exit 1
 fi
 

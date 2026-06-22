@@ -75,6 +75,19 @@ Bu dosyalarda şu bilgiler bulunur:
 
 Gerçek `.env` dosyası repoya eklenmemelidir.
 
+Yerel `.env` olusturma ve izinleri `600` olan Application Support yedegini
+yonetmek icin secret degerlerini ekrana basmayan yardimci kullanilir:
+
+```bash
+./services/manage-env-macos.sh init
+./services/manage-env-macos.sh backup
+./services/manage-env-macos.sh restore
+./services/manage-env-macos.sh status
+```
+
+`restore` ve `init` mevcut `.env` dosyasinin uzerine varsayilan olarak yazmaz;
+bilincli degistirme icin `--force` gerekir.
+
 ## macOS Otomatik Servisleri
 
 Yerel signaling ve Metro servislerini terminalden bağımsız çalıştırmak için:
@@ -90,6 +103,8 @@ süreçlerine kapattığı için çalışma kopyası
 `~/Library/Application Support/ip-camera-webrtc-mobile/` altına kurulur.
 Projede değişiklik yapıldığında kurulum komutu tekrar çalıştırılmalıdır.
 Loglar `~/Library/Logs/ip-camera-webrtc-mobile/` altındadır.
+Servisler Homebrew, NVM, Volta veya asdf altindaki Node.js 20+ kurulumunu bulur;
+tek bir NVM/Node major yoluna sabitlenmez.
 
 ## Gateway'i Calistirma
 

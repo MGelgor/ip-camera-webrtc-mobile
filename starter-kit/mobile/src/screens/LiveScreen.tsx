@@ -101,6 +101,12 @@ export function LiveScreen({
   }, [nativeStreamUrl, nativeWebRtc.status, nativeWebRtcEnabled]);
 
   useEffect(() => {
+    if (nativeWebRtcEnabled && useWebViewFallback) {
+      nativeWebRtc.disconnect();
+    }
+  }, [nativeWebRtc.disconnect, nativeWebRtcEnabled, useWebViewFallback]);
+
+  useEffect(() => {
     if (!useWebViewFallback) return;
 
     let cancelled = false;

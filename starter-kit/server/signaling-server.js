@@ -34,20 +34,30 @@ const SIGNALING_TLS_CERT_PATH = process.env.SIGNALING_TLS_CERT_PATH ?? "";
 const SIGNALING_TLS_KEY_PATH = process.env.SIGNALING_TLS_KEY_PATH ?? "";
 const SIGNALING_RATE_LIMIT_WINDOW_MS = Number(process.env.SIGNALING_RATE_LIMIT_WINDOW_MS ?? 60_000);
 const SIGNALING_RATE_LIMIT_MAX_REQUESTS = Number(process.env.SIGNALING_RATE_LIMIT_MAX_REQUESTS ?? 120);
+const SIGNALING_LOGIN_RATE_LIMIT_WINDOW_MS = Number(
+  process.env.SIGNALING_LOGIN_RATE_LIMIT_WINDOW_MS ?? 15 * 60_000,
+);
+const SIGNALING_LOGIN_RATE_LIMIT_MAX_REQUESTS = Number(
+  process.env.SIGNALING_LOGIN_RATE_LIMIT_MAX_REQUESTS ?? 5,
+);
+const SIGNALING_TRUST_PROXY = process.env.SIGNALING_TRUST_PROXY === "true";
+const SESSION_SWEEP_INTERVAL_MS = Number(process.env.SESSION_SWEEP_INTERVAL_MS ?? 60_000);
+const MAX_SESSION_ENTRIES = Number(process.env.MAX_SESSION_ENTRIES ?? 10_000);
 const STUN_URL = process.env.STUN_URL ?? "";
 const TURN_URL = process.env.TURN_URL ?? "";
 const TURN_USER = process.env.TURN_USER ?? "";
 const TURN_PASSWORD = process.env.TURN_PASSWORD ?? "";
 const ALLOWED_SIGNAL_TYPES = new Set(["offer", "answer", "ice-candidate", "webrtc/offer", "webrtc/answer", "webrtc/candidate"]);
 const PLAYER_SESSION_COOKIE = "signaling_player_session";
-const PLAYER_SESSION_TTL_MS = 10 * 60 * 1000;
-const ACCESS_SESSION_TTL_MS = 60 * 60 * 1000;
+const PLAYER_SESSION_TTL_MS = Number(process.env.PLAYER_SESSION_TTL_MS ?? 10 * 60 * 1000);
+const ACCESS_SESSION_TTL_MS = Number(process.env.ACCESS_SESSION_TTL_MS ?? 60 * 60 * 1000);
 
 // Oda mantigini hafif bir bellek yapisinda tutuyoruz.
 // Bu server video tasimaz; sadece baglanti mesajlarini relaye eder.
 const rooms = new Map();
 const clients = new Map();
 const rateLimits = new Map();
+const loginRateLimits = new Map();
 const playerSessions = new Map();
 const accessSessions = new Map();
 
@@ -65,6 +75,23 @@ function assertConfiguration() {
     );
     process.exit(1);
   }
+
+  const positiveSettings = {
+    SIGNALING_RATE_LIMIT_WINDOW_MS,
+    SIGNALING_RATE_LIMIT_MAX_REQUESTS,
+    SIGNALING_LOGIN_RATE_LIMIT_WINDOW_MS,
+    SIGNALING_LOGIN_RATE_LIMIT_MAX_REQUESTS,
+    SESSION_SWEEP_INTERVAL_MS,
+    MAX_SESSION_ENTRIES,
+    PLAYER_SESSION_TTL_MS,
+    ACCESS_SESSION_TTL_MS,
+  };
+  for (const [name, value] of Object.entries(positiveSettings)) {
+    if (!Number.isFinite(value) || value <= 0) {
+      console.error(`${name} pozitif bir sayi olmalidir.`);
+      process.exit(1);
+    }
+  }
 }
 
 function writeJson(res, statusCode, payload) {
@@ -73,8 +100,16 @@ function writeJson(res, statusCode, payload) {
 }
 
 function clientIp(req) {
-  const forwarded = req.headers["x-forwarded-for"];
-  const raw = Array.isArray(forwarded) ? forwarded[0] : forwarded ?? req.socket.remoteAddress ?? "unknown";
+  const peerIp = String(req.socket.remoteAddress ?? "");
+  const isLoopbackProxy =
+    SIGNALING_TRUST_PROXY &&
+    (peerIp === "127.0.0.1" || peerIp === "::1" || peerIp === "::ffff:127.0.0.1");
+  const forwarded = isLoopbackProxy
+    ? req.headers["cf-connecting-ip"] ?? req.headers["x-forwarded-for"]
+    : null;
+  const raw = Array.isArray(forwarded)
+    ? forwarded[0]
+    : forwarded ?? req.socket.remoteAddress ?? "unknown";
   return String(raw).split(",")[0].trim();
 }
 
@@ -103,25 +138,65 @@ function logEvent(kind, details) {
   console.log(`[signaling] ${kind}${line ? ` ${line}` : ""}`);
 }
 
-function takeRateLimit(req) {
-  const ip = clientIp(req);
+function takeRateLimit(store, key, windowMs, maxRequests) {
   const now = Date.now();
-  const entry = rateLimits.get(ip);
+  const entry = store.get(key);
 
   if (!entry || now > entry.resetAt) {
-    rateLimits.set(ip, {
+    store.set(key, {
       count: 1,
-      resetAt: now + SIGNALING_RATE_LIMIT_WINDOW_MS,
+      resetAt: now + windowMs,
     });
     return true;
   }
 
-  if (entry.count >= SIGNALING_RATE_LIMIT_MAX_REQUESTS) {
+  if (entry.count >= maxRequests) {
     return false;
   }
 
   entry.count += 1;
   return true;
+}
+
+function takeGeneralRateLimit(req) {
+  return takeRateLimit(
+    rateLimits,
+    clientIp(req),
+    SIGNALING_RATE_LIMIT_WINDOW_MS,
+    SIGNALING_RATE_LIMIT_MAX_REQUESTS,
+  );
+}
+
+function takeLoginRateLimit(req) {
+  return takeRateLimit(
+    loginRateLimits,
+    clientIp(req),
+    SIGNALING_LOGIN_RATE_LIMIT_WINDOW_MS,
+    SIGNALING_LOGIN_RATE_LIMIT_MAX_REQUESTS,
+  );
+}
+
+function deleteExpiredEntries(store, now) {
+  for (const [key, value] of store) {
+    const expiresAt = typeof value === "number" ? value : value.resetAt;
+    if (expiresAt <= now) store.delete(key);
+  }
+}
+
+function cleanupExpiredState() {
+  const now = Date.now();
+  deleteExpiredEntries(rateLimits, now);
+  deleteExpiredEntries(loginRateLimits, now);
+  deleteExpiredEntries(playerSessions, now);
+  deleteExpiredEntries(accessSessions, now);
+}
+
+function enforceMapLimit(store) {
+  while (store.size >= MAX_SESSION_ENTRIES) {
+    const oldestKey = store.keys().next().value;
+    if (oldestKey === undefined) return;
+    store.delete(oldestKey);
+  }
 }
 
 function cameraCatalog() {
@@ -144,13 +219,13 @@ function cameraCatalog() {
   ];
 }
 
-function extractBearerToken(req, url) {
+function extractBearerToken(req) {
   const authHeader = req.headers.authorization;
   if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
     return authHeader.slice("Bearer ".length).trim();
   }
 
-  return url.searchParams.get("token") ?? "";
+  return "";
 }
 
 function tokensEqual(receivedToken, expectedToken) {
@@ -159,7 +234,7 @@ function tokensEqual(receivedToken, expectedToken) {
   return received.length === expected.length && crypto.timingSafeEqual(received, expected);
 }
 
-function hasValidAccessSession(token) {
+function accessSessionExpiry(token) {
   if (!token) return false;
 
   const expiresAt = accessSessions.get(token);
@@ -168,7 +243,7 @@ function hasValidAccessSession(token) {
     return false;
   }
 
-  return true;
+  return expiresAt;
 }
 
 function parseCookies(req) {
@@ -181,13 +256,21 @@ function parseCookies(req) {
       if (separator < 0) return [item.trim(), ""];
       return [
         item.slice(0, separator).trim(),
-        decodeURIComponent(item.slice(separator + 1).trim()),
+        safeDecodeURIComponent(item.slice(separator + 1).trim()),
       ];
     }),
   );
 }
 
-function hasValidPlayerSession(req) {
+function safeDecodeURIComponent(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return "";
+  }
+}
+
+function playerSessionExpiry(req) {
   const sessionId = parseCookies(req)[PLAYER_SESSION_COOKIE];
   if (!sessionId) return false;
 
@@ -197,16 +280,21 @@ function hasValidPlayerSession(req) {
     return false;
   }
 
-  return true;
+  return expiresAt;
 }
 
-function isAuthorized(req, url) {
-  const receivedToken = extractBearerToken(req, url);
-  return (
-    tokensEqual(receivedToken, SIGNALING_AUTH_TOKEN) ||
-    hasValidAccessSession(receivedToken) ||
-    hasValidPlayerSession(req)
-  );
+function authorizationExpiry(req, _url, { allowPlayerSession = false } = {}) {
+  const receivedToken = extractBearerToken(req);
+  if (tokensEqual(receivedToken, SIGNALING_AUTH_TOKEN)) return Infinity;
+
+  const accessExpiry = accessSessionExpiry(receivedToken);
+  if (accessExpiry) return accessExpiry;
+
+  return allowPlayerSession ? playerSessionExpiry(req) : false;
+}
+
+function isAuthorized(req, url, options) {
+  return Boolean(authorizationExpiry(req, url, options));
 }
 
 function readJsonBody(req, limit = 8 * 1024) {
@@ -236,6 +324,7 @@ function readJsonBody(req, limit = 8 * 1024) {
 
 function issueAccessSession() {
   const token = crypto.randomBytes(32).toString("base64url");
+  enforceMapLimit(accessSessions);
   accessSessions.set(token, Date.now() + ACCESS_SESSION_TTL_MS);
   return token;
 }
@@ -249,6 +338,7 @@ function validLogin(username, password) {
 
 function createPlayerSession(req, res) {
   const sessionId = crypto.randomBytes(32).toString("hex");
+  enforceMapLimit(playerSessions);
   playerSessions.set(sessionId, Date.now() + PLAYER_SESSION_TTL_MS);
 
   const forwardedProto = String(req.headers["x-forwarded-proto"] ?? "")
@@ -605,7 +695,7 @@ const requestHandler = async (req, res) => {
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
   const maskedIp = maskValue(clientIp(req));
 
-  if (!takeRateLimit(req)) {
+  if (!takeGeneralRateLimit(req)) {
     logEvent("rate-limit", { ip: maskedIp, path: url.pathname });
     writeJson(res, 429, {
       ok: false,
@@ -644,6 +734,13 @@ const requestHandler = async (req, res) => {
   if (url.pathname === "/auth/login") {
     if (req.method !== "POST") {
       writeJson(res, 405, { ok: false, error: "Method not allowed" });
+      return;
+    }
+
+    if (!takeLoginRateLimit(req)) {
+      logEvent("login-rate-limit", { ip: maskedIp });
+      res.setHeader("Retry-After", String(Math.ceil(SIGNALING_LOGIN_RATE_LIMIT_WINDOW_MS / 1000)));
+      writeJson(res, 429, { ok: false, error: "Too many login attempts" });
       return;
     }
 
@@ -719,7 +816,7 @@ const requestHandler = async (req, res) => {
       return;
     }
 
-    if (!hasValidPlayerSession(req)) {
+    if (!playerSessionExpiry(req)) {
       createPlayerSession(req, res);
     }
     const player = playerHtml(streamName);
@@ -759,6 +856,9 @@ const requestHandler = async (req, res) => {
 
 assertConfiguration();
 
+const cleanupTimer = setInterval(cleanupExpiredState, SESSION_SWEEP_INTERVAL_MS);
+cleanupTimer.unref();
+
 const server =
   SIGNALING_TLS_CERT_PATH && SIGNALING_TLS_KEY_PATH
     ? https.createServer(
@@ -791,17 +891,23 @@ wss.on("connection", (ws, req) => {
   const url = new URL(req.url ?? "/ws", `http://${req.headers.host ?? "localhost"}`);
   const maskedIp = maskValue(clientIp(req));
 
-  if (!takeRateLimit(req)) {
+  if (!takeGeneralRateLimit(req)) {
     logEvent("rate-limit-ws", { ip: maskedIp, path: url.pathname });
     ws.close(1013, "Rate limit");
     return;
   }
 
-  if (!isAuthorized(req, url)) {
+  const expiresAt = authorizationExpiry(req, url, { allowPlayerSession: true });
+  if (!expiresAt) {
     logEvent("unauthorized-ws", { ip: maskedIp, path: url.pathname });
     ws.close(1008, "Unauthorized");
     return;
   }
+
+  const expiryTimer = Number.isFinite(expiresAt)
+    ? setTimeout(() => ws.close(1008, "Session expired"), Math.max(0, expiresAt - Date.now()))
+    : null;
+  expiryTimer?.unref();
 
   const clientId = crypto.randomUUID();
 
@@ -944,6 +1050,7 @@ wss.on("connection", (ws, req) => {
   });
 
   ws.on("close", () => {
+    if (expiryTimer) clearTimeout(expiryTimer);
     logEvent("ws-closed", { ip: maskedIp, clientId: clientId.slice(0, 8) });
     removeClient(clientId);
   });
