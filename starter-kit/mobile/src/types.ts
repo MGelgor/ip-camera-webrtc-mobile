@@ -121,6 +121,11 @@ export type AppCopy = {
     loadErrorHint: string;
     offlineTitle: string;
     offlineHint: string;
+    routeLabel: string;
+    routeChecking: string;
+    routeDirect: string;
+    routeStun: string;
+    routeTurn: string;
     lastMessageLabel: string;
     lastMessageEmpty: string;
   };

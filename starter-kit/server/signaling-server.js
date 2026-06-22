@@ -392,6 +392,56 @@ function playerHtml(streamName) {
       let peer = null;
       const pendingCandidates = [];
       let remoteDescriptionReady = false;
+      let routeCheckTimer = null;
+
+      function postToApp(payload) {
+        if (window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === "function") {
+          window.ReactNativeWebView.postMessage(JSON.stringify(payload));
+        }
+      }
+
+      async function reportSelectedRoute() {
+        if (!peer) return false;
+        const stats = await peer.getStats();
+        let selectedPair = null;
+        stats.forEach((report) => {
+          if (report.type === "transport" && report.selectedCandidatePairId) {
+            selectedPair = stats.get(report.selectedCandidatePairId) || selectedPair;
+          }
+        });
+        if (!selectedPair) {
+          stats.forEach((report) => {
+            if (
+              report.type === "candidate-pair" &&
+              report.state === "succeeded" &&
+              (report.nominated || report.selected)
+            ) {
+              selectedPair = report;
+            }
+          });
+        }
+        if (!selectedPair) return false;
+        const local = stats.get(selectedPair.localCandidateId);
+        const remote = stats.get(selectedPair.remoteCandidateId);
+        const candidateType = String(local?.candidateType || remote?.candidateType || "unknown");
+        postToApp({ type: "ice-route", candidateType });
+        return candidateType !== "unknown";
+      }
+
+      function startRouteReporter() {
+        if (routeCheckTimer) clearInterval(routeCheckTimer);
+        let attempts = 0;
+        const check = async () => {
+          attempts += 1;
+          const reported = await reportSelectedRoute().catch(() => false);
+          if ((reported || attempts >= 20) && routeCheckTimer) {
+            clearInterval(routeCheckTimer);
+            routeCheckTimer = null;
+          }
+        };
+        check();
+        routeCheckTimer = setInterval(check, 1000);
+      }
 
       function fail(message) {
         state.hidden = false;
@@ -407,6 +457,7 @@ function playerHtml(streamName) {
           video.srcObject = event.streams[0] || new MediaStream([event.track]);
           state.hidden = true;
           video.play().catch(() => {});
+          startRouteReporter();
         };
         peer.onicecandidate = (event) => {
           socket.send(JSON.stringify({
@@ -416,6 +467,7 @@ function playerHtml(streamName) {
         };
         peer.onconnectionstatechange = () => {
           if (peer.connectionState === "failed") fail("WebRTC baglantisi kurulamadi.");
+          if (peer.connectionState === "connected") startRouteReporter();
         };
 
         const offer = await peer.createOffer();

@@ -3,6 +3,7 @@ import { Modal, Pressable, Text, View } from "react-native";
 import { RTCView } from "react-native-webrtc";
 import { WebView } from "react-native-webview";
 import type { WebView as WebViewType } from "react-native-webview";
+import type { WebViewMessageEvent } from "react-native-webview";
 import type { IceServerConfig } from "../cameras";
 import { Section } from "../components";
 import { styles } from "../styles";
@@ -53,6 +54,7 @@ export function LiveScreen({
   const [hasPlayerLoadError, setHasPlayerLoadError] = useState(false);
   const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
   const [isGatewayOffline, setIsGatewayOffline] = useState(false);
+  const [iceRoute, setIceRoute] = useState<"checking" | "direct" | "stun" | "turn">("checking");
   const [useWebViewFallback, setUseWebViewFallback] = useState(!nativeWebRtcEnabled);
   const nativeWebRtc = useGo2RtcWebrtc({
     wsUrl: signalingUrl,
@@ -69,6 +71,7 @@ export function LiveScreen({
     setIsLoading(true);
     setIsGatewayOffline(false);
     gatewayFailureCount.current = 0;
+    setIceRoute("checking");
     setUseWebViewFallback(!nativeWebRtcEnabled);
     if (nativeWebRtcEnabled) {
       nativeWebRtc.disconnect();
@@ -77,6 +80,30 @@ export function LiveScreen({
     webViewRef.current?.reload();
     fullscreenWebViewRef.current?.reload();
   }
+
+  function handlePlayerMessage(event: WebViewMessageEvent) {
+    try {
+      const message = JSON.parse(event.nativeEvent.data) as {
+        type?: string;
+        candidateType?: string;
+      };
+      if (message.type !== "ice-route") return;
+      if (message.candidateType === "relay") setIceRoute("turn");
+      else if (message.candidateType === "srflx" || message.candidateType === "prflx") setIceRoute("stun");
+      else if (message.candidateType === "host") setIceRoute("direct");
+    } catch {
+      // Ignore messages that are not emitted by the player route reporter.
+    }
+  }
+
+  const routeLabel =
+    iceRoute === "turn"
+      ? copy.routeTurn
+      : iceRoute === "stun"
+        ? copy.routeStun
+        : iceRoute === "direct"
+          ? copy.routeDirect
+          : copy.routeChecking;
 
   useEffect(() => {
     if (!nativeWebRtcEnabled) {
@@ -210,6 +237,7 @@ export function LiveScreen({
               mediaPlaybackRequiresUserAction={false}
               mixedContentMode="always"
               originWhitelist={["*"]}
+              onMessage={handlePlayerMessage}
               startInLoadingState
               onLoadStart={() => {
                 setIsLoading(true);
@@ -310,6 +338,10 @@ export function LiveScreen({
           <Text style={[styles.signalLogText, { color: theme.text }]}>{cameraName}</Text>
           <Text style={[styles.signalLogText, { color: theme.textMuted }]}>{cameraLocation}</Text>
           <Text style={[styles.signalLogText, { color: theme.text }]}>go2rtc stream: {streamName}</Text>
+          <Text style={[styles.signalLogLabel, { color: theme.textSoft }]}>{copy.routeLabel}</Text>
+          <Text style={[styles.signalLogText, { color: iceRoute === "turn" ? theme.warning : theme.success }]}>
+            {routeLabel}
+          </Text>
           <Text style={[styles.signalLogText, { color: theme.textMuted }]}>
             {nativeStreamUrl ? signalingUrl : playerUrl}
           </Text>
@@ -357,6 +389,7 @@ export function LiveScreen({
                 mediaPlaybackRequiresUserAction={false}
                 mixedContentMode="always"
                 originWhitelist={["*"]}
+                onMessage={handlePlayerMessage}
               />
             ) : null}
           </View>

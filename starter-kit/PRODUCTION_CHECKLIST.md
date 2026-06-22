@@ -137,6 +137,7 @@ IP Kamera
 - [ ] Native basarisizken otomatik WebView fallback'ini cihazda dogrula
 - [x] Android 16 native WebRTC SIGABRT durumunda native yolu cihaz seviyesinde kapat
 - [x] Mobil veride erisilemeyen LAN signaling icin sonsuz login yerine 10 saniye timeout ekle
+- [x] Canli ekranda secilen ICE yolunu Dogrudan/STUN/TURN olarak goster
 - [ ] Metro/USB gerektirmeyen imzali Android release build uret
 - [ ] Native `react-native-webrtc` yolunu tekrar degerlendir
 
@@ -156,6 +157,10 @@ IP Kamera
 - Gateway durum kontrolundeki tek seferlik hata artik canli videoyu hemen kapatmaz;
   offline katmani art arda uc basarisiz kontrolden sonra gosterilir ve durum
   duzeldiginde otomatik toparlanir.
+- 2026-06-22 Samsung 5G testinde uygulamadaki ICE yol gostergesi Chromium'un secili
+  candidate pair raporundan `Dogrudan (STUN)` sonucunu gosterdi. Normal APK'da
+  relay zorlama yoktur; TURN yalnizca dogrudan ICE yolu kurulamazsa yedek olarak
+  kullanilir.
 
 - 2026-06-19 testinde Samsung S24 FE (Android 16 / API 36) USB ADB ile baglandi.
 - Uygulama fiziksel telefona kuruldu; gateway auth aktifken `ofis_kamera` WebRTC
