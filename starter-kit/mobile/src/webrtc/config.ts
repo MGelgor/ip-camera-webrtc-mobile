@@ -1,34 +1,27 @@
-import { Platform } from "react-native";
 import type { CameraConfig } from "../cameras";
+import { signalingHttpBase } from "../runtime";
 
 // go2rtc exposes its WebSocket-based WebRTC endpoint under /api/ws.
 // In Android emulator, 10.0.2.2 points back to the development machine.
-export function getGo2RtcDefaults(camera: CameraConfig) {
-  // The active go2rtc gateway now runs on the smart intercom device instead of
-  // the developer machine. Both emulator and desktop previews should point to
-  // that fixed LAN address while we validate the gateway phase.
-  const host = camera.gatewayHost ?? (Platform.OS === "android" ? "10.0.2.2" : "localhost");
-  const baseUrl = (camera.gatewayBaseUrl ?? `http://${host}:1984`).replace(/\/$/, "");
-  const webSocketBaseUrl = baseUrl.replace(/^https:/, "wss:").replace(/^http:/, "ws:");
-  const playbackMode = baseUrl.startsWith("https://") ? "mse,webrtc" : "webrtc,mse";
+export function getGo2RtcDefaults(
+  camera: CameraConfig,
+  signalingUrl: string,
+  signalingAuthToken?: string | null,
+) {
+  const signalingBaseUrl = signalingHttpBase(signalingUrl).replace(/\/$/, "");
   const encodedStreamName = encodeURIComponent(camera.streamName);
+  const requestHeaders = signalingAuthToken
+    ? { Authorization: `Bearer ${signalingAuthToken}` }
+    : undefined;
 
   return {
-    // Native WebRTC endpoint. This stays here for the later phase where we
-    // want to exchange SDP directly inside React Native.
-    wsUrl: `${webSocketBaseUrl}/api/ws?src=${encodedStreamName}`,
-
-    // Stable preview endpoint. go2rtc already provides a browser player that
-    // can play our RTSP camera through its own WebRTC/MSE/HLS pipeline.
-    // In the Android emulator, 10.0.2.2 means "the Mac that runs the emulator".
-    playerUrl: `${baseUrl}/stream.html?src=${encodedStreamName}&mode=${playbackMode}`,
-    streamStatusUrl: `${baseUrl}/api/streams`,
-    requestHeaders: camera.gatewayAuthHeader ? { Authorization: camera.gatewayAuthHeader } : undefined,
-    basicAuthCredential:
-      camera.gatewayUsername && camera.gatewayPassword
-        ? { username: camera.gatewayUsername, password: camera.gatewayPassword }
-        : undefined,
+    wsUrl: signalingUrl,
+    playerUrl: camera.playerUrl ?? `${signalingBaseUrl}/player?src=${encodedStreamName}`,
+    streamStatusUrl:
+      camera.streamStatusUrl ?? `${signalingBaseUrl}/gateway/status?src=${encodedStreamName}`,
+    requestHeaders,
 
     streamName: camera.streamName,
+    iceServers: camera.iceServers ?? [],
   };
 }

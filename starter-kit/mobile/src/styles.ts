@@ -1,6 +1,81 @@
 import { StyleSheet } from "react-native";
 
 export const styles = StyleSheet.create({
+  loginRoot: {
+    flex: 1,
+    justifyContent: "center",
+    padding: 22,
+  },
+  loginCard: {
+    borderWidth: 1,
+    borderRadius: 28,
+    padding: 24,
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.18,
+    shadowRadius: 32,
+    elevation: 8,
+  },
+  loginBrand: {
+    width: 72,
+    height: 72,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 24,
+  },
+  loginLogo: {
+    width: 54,
+    height: 54,
+    resizeMode: "contain",
+  },
+  loginTitle: {
+    fontSize: 27,
+    lineHeight: 32,
+    fontWeight: "900",
+    marginBottom: 8,
+  },
+  loginSubtitle: {
+    fontSize: 14,
+    lineHeight: 21,
+    marginBottom: 24,
+  },
+  loginLabel: {
+    fontSize: 12,
+    fontWeight: "800",
+    marginBottom: 7,
+  },
+  loginInput: {
+    minHeight: 52,
+    borderWidth: 1,
+    borderRadius: 15,
+    paddingHorizontal: 16,
+    fontSize: 15,
+    marginBottom: 16,
+  },
+  loginError: {
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: "700",
+    marginBottom: 14,
+  },
+  loginButton: {
+    minHeight: 54,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+  },
+  loginButtonText: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  loginServer: {
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 18,
+    textAlign: "center",
+  },
   safeArea: {
     flex: 1,
   },

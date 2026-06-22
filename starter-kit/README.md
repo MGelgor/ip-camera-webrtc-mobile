@@ -67,13 +67,29 @@ Bu dosyalarda şu bilgiler bulunur:
 
 - Signaling server gerçek sertifika ile HTTPS/WSS arkasına alınacak
 - TURN endpoint'i statik public IP veya otomatik DDNS adresine bağlanacak
-- Signaling ve named tunnel Mac yeniden başladığında otomatik açılacak
+- Named tunnel Mac yeniden başladığında otomatik açılacak
 - Signaling yetkilendirmesi kullanıcı auth akışına bağlanacak
 - TURN için kısa ömürlü production credential mekanizması eklenecek
 - Metro/USB gerektirmeyen imzalı Android release build üretilecek
 - Native `react-native-webrtc` yolu tekrar değerlendirilecek
 
 Gerçek `.env` dosyası repoya eklenmemelidir.
+
+## macOS Otomatik Servisleri
+
+Yerel signaling ve Metro servislerini terminalden bağımsız çalıştırmak için:
+
+```bash
+./services/install-macos-services.sh
+./services/manage-macos-services.sh status
+```
+
+Servisler kullanıcı oturumu açıldığında başlar ve beklenmedik şekilde kapanırsa
+`launchd` tarafından yeniden çalıştırılır. macOS Desktop erişimini LaunchAgent
+süreçlerine kapattığı için çalışma kopyası
+`~/Library/Application Support/ip-camera-webrtc-mobile/` altına kurulur.
+Projede değişiklik yapıldığında kurulum komutu tekrar çalıştırılmalıdır.
+Loglar `~/Library/Logs/ip-camera-webrtc-mobile/` altındadır.
 
 ## Gateway'i Calistirma
 
@@ -92,10 +108,12 @@ Gerekli kontrol adresleri:
 - `http://localhost:1984`
 - `:8555`
 
-go2rtc API basic auth aktiftir. Signaling server `/cameras` katalog cevabinda auth
-header veya RTSP credential dondurmez. Gelistirme build'i go2rtc auth bilgisini yerel
-ortam degiskeninden alir; production'da bu bilgi uygulama paketinden de cikarilip
-kimlik dogrulamali bir gateway proxy/erisim politikasi arkasina alinmalidir.
+go2rtc API basic auth aktiftir. Signaling server `/cameras` katalog cevabinda gateway
+adresi, auth header veya RTSP credential dondurmez. WebView player ve durum kontrolu
+signaling server uzerinden gecerek go2rtc kimlik bilgisini server tarafinda tutar.
+Mobil APK'ya go2rtc veya TURN build-time parolasi gomulmez.
+Signaling admin tokeni ve login parolasi da mobil build'e verilmez. Uygulama kullanici
+girisinden sonra server'in urettiği 60 dakikalik session tokenini sadece bellekte tutar.
 
 ## PDF ile Uyum Notu
 
@@ -108,7 +126,7 @@ IP Kamera -> RTSP -> go2rtc -> WebRTC -> native mobil istemci
 Bu starter kit'te şu an çalışan yol PDF'teki alternatif WebView yaklaşımıdır:
 
 ```text
-IP Kamera -> RTSP -> go2rtc -> go2rtc player -> React Native WebView
+IP Kamera -> RTSP -> go2rtc -> signaling WebRTC bridge -> React Native WebView
 ```
 
 Bu yol proje için geçerli bir ara aşamadır. Canlı görüntüyü hızlı ve stabil şekilde gösterir.

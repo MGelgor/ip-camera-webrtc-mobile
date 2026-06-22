@@ -26,6 +26,8 @@ import { getSignalingDefaults } from "./config";
 import { useSignalingConnection } from "./signaling/useSignalingConnection";
 import { getGo2RtcDefaults } from "./webrtc/config";
 import { fetchRuntimeCameras } from "./runtime";
+import { loginToSignaling } from "./auth";
+import { LoginScreen } from "./screens/LoginScreen";
 
 // AppShell is the orchestration layer.
 // It owns only:
@@ -55,18 +57,35 @@ export default function AppShell() {
   const [cameras, setCameras] = useState(CAMERAS);
   const [selectedCamera, setSelectedCamera] = useState(DEFAULT_CAMERA);
   const [cameraCatalogState, setCameraCatalogState] = useState<"loading" | "ready" | "error">("loading");
-  const signalingDefaults = getSignalingDefaults(selectedCamera);
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [sessionExpiresAt, setSessionExpiresAt] = useState<number | null>(null);
+  const signalingDefaults = getSignalingDefaults(selectedCamera, sessionToken);
   const signaling = useSignalingConnection({
     url: signalingDefaults.url,
     room: signalingDefaults.room,
     role: signalingDefaults.role,
     name: signalingDefaults.name,
     authToken: signalingDefaults.authToken,
-    autoConnect: true,
+    autoConnect: Boolean(sessionToken),
   });
-  const go2rtcDefaults = getGo2RtcDefaults(selectedCamera);
+  const go2rtcDefaults = getGo2RtcDefaults(
+    selectedCamera,
+    signalingDefaults.url,
+    signalingDefaults.authToken,
+  );
+  const nativeWebRtcEnabled =
+    process.env.EXPO_PUBLIC_NATIVE_WEBRTC_ENABLED?.trim().toLowerCase() === "true";
+
+  async function login(username: string, password: string) {
+    const session = await loginToSignaling(signalingDefaults.url, username, password);
+    setSessionToken(session.accessToken);
+    setSessionExpiresAt(session.expiresAt);
+    setCameraCatalogState("loading");
+  }
 
   useEffect(() => {
+    if (!sessionToken) return;
+
     let cancelled = false;
 
     async function loadRuntimeCameras() {
@@ -95,7 +114,28 @@ export default function AppShell() {
     return () => {
       cancelled = true;
     };
-  }, [signalingDefaults.url]);
+  }, [sessionToken, signalingDefaults.url]);
+
+  useEffect(() => {
+    if (!sessionExpiresAt) return;
+
+    const remaining = sessionExpiresAt - Date.now();
+    if (remaining <= 0) {
+      setSessionToken(null);
+      setSessionExpiresAt(null);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      signaling.disconnect();
+      setSessionToken(null);
+      setSessionExpiresAt(null);
+      setCameras(CAMERAS);
+      setSelectedCamera(DEFAULT_CAMERA);
+    }, remaining);
+
+    return () => clearTimeout(timer);
+  }, [sessionExpiresAt, signaling.disconnect]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -119,6 +159,15 @@ export default function AppShell() {
   const profileSize = compactHeader ? 48 : 52;
   const profileDockWidth = Math.min(width - 36, compactHeader ? 290 : 336);
   const profileMenuTop = profileSize + 10;
+
+  if (!sessionToken) {
+    return (
+      <View style={[styles.safeArea, { backgroundColor: theme.background }]}>
+        <StatusBar style={theme === DARK_THEME ? "light" : "dark"} />
+        <LoginScreen theme={theme} serverUrl={signalingDefaults.url} onLogin={login} />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.safeArea, { backgroundColor: theme.background }]}>
@@ -188,7 +237,10 @@ export default function AppShell() {
             cameraName={selectedCamera.name}
             cameraLocation={selectedCamera.location}
             requestHeaders={go2rtcDefaults.requestHeaders}
-            basicAuthCredential={go2rtcDefaults.basicAuthCredential}
+            signalingUrl={signalingDefaults.url}
+            signalingAuthToken={signalingDefaults.authToken}
+            iceServers={go2rtcDefaults.iceServers}
+            nativeWebRtcEnabled={nativeWebRtcEnabled}
           />
         ) : null}
 

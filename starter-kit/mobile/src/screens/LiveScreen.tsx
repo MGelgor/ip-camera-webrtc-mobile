@@ -1,10 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Modal, Pressable, Text, View } from "react-native";
+import { RTCView } from "react-native-webrtc";
 import { WebView } from "react-native-webview";
 import type { WebView as WebViewType } from "react-native-webview";
+import type { IceServerConfig } from "../cameras";
 import { Section } from "../components";
 import { styles } from "../styles";
 import type { AppCopy, Theme } from "../types";
+import { useGo2RtcWebrtc } from "../webrtc/useGo2RtcWebrtc";
 
 type Props = {
   copy: AppCopy["live"];
@@ -16,7 +19,10 @@ type Props = {
   cameraName: string;
   cameraLocation: string;
   requestHeaders?: Record<string, string>;
-  basicAuthCredential?: { username: string; password: string };
+  signalingUrl: string;
+  signalingAuthToken?: string | null;
+  iceServers: IceServerConfig[];
+  nativeWebRtcEnabled: boolean;
 };
 
 // This is the first stable media screen.
@@ -35,7 +41,10 @@ export function LiveScreen({
   cameraName,
   cameraLocation,
   requestHeaders,
-  basicAuthCredential,
+  signalingUrl,
+  signalingAuthToken,
+  iceServers,
+  nativeWebRtcEnabled,
 }: Props) {
   const webViewRef = useRef<WebViewType>(null);
   const fullscreenWebViewRef = useRef<WebViewType>(null);
@@ -43,16 +52,57 @@ export function LiveScreen({
   const [hasLoadError, setHasLoadError] = useState(false);
   const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
   const [isGatewayOffline, setIsGatewayOffline] = useState(false);
+  const [useWebViewFallback, setUseWebViewFallback] = useState(!nativeWebRtcEnabled);
+  const nativeWebRtc = useGo2RtcWebrtc({
+    wsUrl: signalingUrl,
+    streamName,
+    authToken: signalingAuthToken,
+    iceServers,
+    enabled: nativeWebRtcEnabled,
+  });
+  const nativeStreamUrl = nativeWebRtc.remoteStreamUrl;
 
   function reloadPlayer() {
     setHasLoadError(false);
     setIsLoading(true);
     setIsGatewayOffline(false);
+    setUseWebViewFallback(!nativeWebRtcEnabled);
+    if (nativeWebRtcEnabled) {
+      nativeWebRtc.disconnect();
+      setTimeout(nativeWebRtc.connect, 100);
+    }
     webViewRef.current?.reload();
     fullscreenWebViewRef.current?.reload();
   }
 
   useEffect(() => {
+    if (!nativeWebRtcEnabled) {
+      setUseWebViewFallback(true);
+      return;
+    }
+
+    if (nativeStreamUrl) {
+      setUseWebViewFallback(false);
+      setIsLoading(false);
+      setHasLoadError(false);
+      return;
+    }
+
+    if (nativeWebRtc.status === "error") {
+      setUseWebViewFallback(true);
+      return;
+    }
+
+    const fallbackTimer = setTimeout(() => {
+      setUseWebViewFallback(true);
+    }, 12000);
+
+    return () => clearTimeout(fallbackTimer);
+  }, [nativeStreamUrl, nativeWebRtc.status, nativeWebRtcEnabled]);
+
+  useEffect(() => {
+    if (!useWebViewFallback) return;
+
     let cancelled = false;
 
     async function checkGateway() {
@@ -96,9 +146,14 @@ export function LiveScreen({
       cancelled = true;
       clearInterval(timer);
     };
-  }, [requestHeaders, streamName, streamStatusUrl]);
+  }, [requestHeaders, streamName, streamStatusUrl, useWebViewFallback]);
 
-  const stateLabel = isGatewayOffline ? copy.stateError : copy.stateConnected;
+  const nativeConnecting = nativeWebRtcEnabled && !useWebViewFallback && !nativeStreamUrl;
+  const stateLabel = isGatewayOffline
+    ? copy.stateError
+    : nativeConnecting
+      ? copy.stateConnecting
+      : copy.stateConnected;
   const stateColor = isGatewayOffline ? theme.danger : theme.accent;
 
   return (
@@ -125,33 +180,40 @@ export function LiveScreen({
         </View>
 
         <View style={[styles.liveVideoFrame, { borderColor: theme.border, backgroundColor: theme.surface }]}>
-          <WebView
-            ref={webViewRef}
-            source={{ uri: playerUrl }}
-            basicAuthCredential={basicAuthCredential}
-            style={styles.liveVideo}
-            allowsInlineMediaPlayback
-            javaScriptEnabled
-            domStorageEnabled
-            mediaPlaybackRequiresUserAction={false}
-            mixedContentMode="always"
-            originWhitelist={["*"]}
-            startInLoadingState
-            onLoadStart={() => {
-              setIsLoading(true);
-              setHasLoadError(false);
-              setIsGatewayOffline(false);
-            }}
-            onLoadEnd={() => {
-              setIsLoading(false);
-            }}
-            onError={() => {
-              setIsLoading(false);
-              setHasLoadError(true);
-            }}
-          />
+          {nativeStreamUrl ? (
+            <RTCView
+              streamURL={nativeStreamUrl}
+              style={styles.liveVideo}
+              objectFit="cover"
+            />
+          ) : useWebViewFallback && !isFullscreenOpen ? (
+            <WebView
+              ref={webViewRef}
+              source={{ uri: playerUrl, headers: requestHeaders }}
+              style={styles.liveVideo}
+              allowsInlineMediaPlayback
+              javaScriptEnabled
+              domStorageEnabled
+              mediaPlaybackRequiresUserAction={false}
+              mixedContentMode="always"
+              originWhitelist={["*"]}
+              startInLoadingState
+              onLoadStart={() => {
+                setIsLoading(true);
+                setHasLoadError(false);
+                setIsGatewayOffline(false);
+              }}
+              onLoadEnd={() => {
+                setIsLoading(false);
+              }}
+              onError={() => {
+                setIsLoading(false);
+                setHasLoadError(true);
+              }}
+            />
+          ) : null}
 
-          {!isLoading && !hasLoadError ? (
+          {(!isLoading || nativeStreamUrl) && !hasLoadError ? (
             <Pressable
               onPress={() => setIsFullscreenOpen(true)}
               style={[
@@ -166,7 +228,7 @@ export function LiveScreen({
             </Pressable>
           ) : null}
 
-          {isLoading ? (
+          {(nativeConnecting || (useWebViewFallback && isLoading)) && !hasLoadError ? (
             <View style={styles.liveVideoOverlay}>
               <Text style={[styles.liveVideoPlaceholderText, { color: theme.text }]}>
                 {copy.loadingLabel}
@@ -177,7 +239,7 @@ export function LiveScreen({
             </View>
           ) : null}
 
-          {hasLoadError ? (
+          {useWebViewFallback && hasLoadError ? (
             <View style={styles.liveVideoOverlay}>
               <Text style={[styles.liveVideoPlaceholderText, { color: theme.danger }]}>
                 {isGatewayOffline ? copy.offlineTitle : copy.loadErrorTitle}
@@ -234,7 +296,9 @@ export function LiveScreen({
           <Text style={[styles.signalLogText, { color: theme.text }]}>{cameraName}</Text>
           <Text style={[styles.signalLogText, { color: theme.textMuted }]}>{cameraLocation}</Text>
           <Text style={[styles.signalLogText, { color: theme.text }]}>go2rtc stream: {streamName}</Text>
-          <Text style={[styles.signalLogText, { color: theme.textMuted }]}>{playerUrl}</Text>
+          <Text style={[styles.signalLogText, { color: theme.textMuted }]}>
+            {nativeStreamUrl ? signalingUrl : playerUrl}
+          </Text>
         </View>
       </View>
 
@@ -262,18 +326,25 @@ export function LiveScreen({
           </View>
 
           <View style={styles.liveFullscreenVideoWrap}>
-            <WebView
-              ref={fullscreenWebViewRef}
-              source={{ uri: playerUrl }}
-              basicAuthCredential={basicAuthCredential}
-              style={styles.liveFullscreenVideo}
-              allowsInlineMediaPlayback
-              javaScriptEnabled
-              domStorageEnabled
-              mediaPlaybackRequiresUserAction={false}
-              mixedContentMode="always"
-              originWhitelist={["*"]}
-            />
+            {nativeStreamUrl ? (
+              <RTCView
+                streamURL={nativeStreamUrl}
+                style={styles.liveFullscreenVideo}
+                objectFit="contain"
+              />
+            ) : useWebViewFallback ? (
+              <WebView
+                ref={fullscreenWebViewRef}
+                source={{ uri: playerUrl, headers: requestHeaders }}
+                style={styles.liveFullscreenVideo}
+                allowsInlineMediaPlayback
+                javaScriptEnabled
+                domStorageEnabled
+                mediaPlaybackRequiresUserAction={false}
+                mixedContentMode="always"
+                originWhitelist={["*"]}
+              />
+            ) : null}
           </View>
         </View>
       </Modal>

@@ -94,7 +94,8 @@ IP Kamera
 - [ ] Oda/kamera yetkilendirmesi ekle
 - [x] Rate limit ve temel loglama ekle
 - [x] Gecici public tunnel ile gercek sertifikali WSS baglantisini fiziksel cihazda dogrula
-- [ ] Signaling ve named tunnel'i Mac reboot sonrasi otomatik baslat
+- [x] Yerel signaling'i Mac kullanici oturumu acildiginda otomatik baslat
+- [ ] Named tunnel'i Mac reboot sonrasi otomatik baslat
 
 ### Mobil Uygulama
 
@@ -190,7 +191,10 @@ IP Kamera
 - [ ] Cloudflare hesabini ve alan adini Mac'e yetkilendir
 - [ ] Kalici domain ve production HTTPS/WSS kurulumu
 - [x] Signaling kamera katalogundan auth header ve RTSP credential cikmadigini dogrula
-- [ ] go2rtc auth bilgisini mobil uygulama paketinden cikarip yetkili proxy arkasina al
+- [x] go2rtc auth bilgisini mobil uygulama paketinden cikarip signaling player/proxy arkasina al
+- [x] TURN ve kamera parolalarinin mobil build-time environment'ina aktarilmasini kaldir
+- [x] Statik signaling admin tokenini APK'dan cikarip kisa omurlu login session'i ekle
+- [ ] Lokal `.env` kullanicisini production kullanici veritabani ve kamera yetkileriyle degistir
 - [ ] Uretim loglarinda RTSP URL/sifre maskeleme
 
 ## 4. Siradaki En Mantikli Sira

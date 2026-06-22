@@ -32,8 +32,13 @@ export async function fetchRuntimeCameras(
       name?: string;
       location?: string;
       streamName?: string;
-      gatewayHost?: string;
-      gatewayBaseUrl?: string;
+      playerPath?: string;
+      streamStatusPath?: string;
+      iceServers?: Array<{
+        urls?: string[];
+        username?: string;
+        credential?: string;
+      }>;
     }>;
   };
 
@@ -50,11 +55,20 @@ export async function fetchRuntimeCameras(
       name: camera.name ?? fallback?.name ?? `Camera ${index + 1}`,
       location: camera.location ?? fallback?.location ?? "",
       streamName: camera.streamName!,
-      gatewayHost: camera.gatewayHost ?? fallback?.gatewayHost,
-      gatewayBaseUrl: camera.gatewayBaseUrl ?? fallback?.gatewayBaseUrl,
-      gatewayAuthHeader: fallback?.gatewayAuthHeader,
-      gatewayUsername: fallback?.gatewayUsername,
-      gatewayPassword: fallback?.gatewayPassword,
+      playerUrl: camera.playerPath
+        ? new URL(camera.playerPath, `${baseUrl}/`).toString()
+        : fallback?.playerUrl,
+      streamStatusUrl: camera.streamStatusPath
+        ? new URL(camera.streamStatusPath, `${baseUrl}/`).toString()
+        : fallback?.streamStatusUrl,
+      iceServers:
+        camera.iceServers
+          ?.filter((server) => Array.isArray(server.urls) && server.urls.length > 0)
+          .map((server) => ({
+            urls: server.urls!,
+            username: server.username,
+            credential: server.credential,
+          })) ?? fallback?.iceServers,
     };
   });
 }

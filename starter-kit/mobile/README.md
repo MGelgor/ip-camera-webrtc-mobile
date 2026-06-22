@@ -13,6 +13,8 @@ Uygulama React Native + Expo ile hazirlandi.
 - Gercek kamera goruntusu artik mobil uygulama icinde gorulebiliyor
 - Samsung S24 FE uzerinde auth, WebRTC, tam ekran ve signaling baglantisi dogrulandi
 - `/cameras` katalogu Genel ekraninda listeleniyor ve secili kamera canli ekrana aktariliyor
+- Uygulama acilisinda kullanici adi/parola ile 60 dakikalik signaling oturumu aciliyor
+- Statik signaling admin tokeni APK'ya gomulmuyor
 
 ## Canli Goruntu Nasil Calisiyor?
 
@@ -22,7 +24,8 @@ Su anki stabil akis:
 IP Kamera
   -> RTSP
   -> go2rtc
-  -> go2rtc web player
+  -> Signaling Server WebRTC bridge
+  -> kimlik dogrulamali player
   -> React Native WebView
   -> Android uygulama ekrani
 ```
@@ -65,10 +68,9 @@ Projeyi ilerletmek icin daha stabil olan yol secildi:
 
 - `src/webrtc/config.ts`
   - go2rtc adreslerini tek yerde tutar.
-  - Emulator veya fiziksel cihaz adresleri `EXPO_PUBLIC_*` degiskenleriyle verilebilir.
-  - WebView Basic Auth bilgisi native `basicAuthCredential` ile aktarilir.
-  - `playerUrl` su an aktif canli goruntu yoludur.
-  - `wsUrl` ileride native WebRTC denemesi icin ayrilmistir.
+  - Player ve gateway durum adreslerini signaling server uzerinden uretir.
+  - go2rtc kullanici adi ve parolasi mobil uygulamaya verilmez.
+  - TURN bilgileri build-time secret olarak APK'ya gomulmez; yetkili katalogdan runtime gelir.
 
 - `src/webrtc/useGo2RtcWebrtc.ts`
   - Native WebRTC denemesi icin hazirlanan hook'tur.
@@ -112,12 +114,20 @@ npm run android:device
 Gecici public WSS tunnel testi icin:
 
 ```bash
-EXPO_PUBLIC_SIGNALING_URL="wss://<gecici-host>.trycloudflare.com/ws" npm run android:device
+EXPO_PUBLIC_SIGNALING_URL="wss://<signaling-host>.trycloudflare.com/ws" \
+GATEWAY_PUBLIC_BASE_URL="https://<gateway-host>.trycloudflare.com" \
+npm run android:device
 ```
 
-Bu script gateway cihazini hedef listesinden ayirir, yerel `.env` varsa yukler ve yoksa
-go2rtc test kimlik bilgisini bagli gateway start script'inden alir. Kimlik bilgisi repoya
-yazilmaz; bu akis yalnizca LAN gelistirme testi icindir.
+Bu script gateway cihazini hedef listesinden ayirir ve yerel `.env` icindeki signaling
+adresiyle mobil build'i olusturur. Signaling admin tokenini, login parolasini, go2rtc ve
+TURN parolalarini Expo public degiskenlerine aktarmaz.
+
+Uygulama her yeniden acildiginda giris ister. Session tokeni yalnizca uygulama belleginde
+tutulur ve server tarafinda 60 dakika sonra gecersiz olur.
+
+Native WebRTC hedef Android surumunde dogrulanana kadar varsayilan olarak kapalidir.
+Kontrollu test icin ek olarak `EXPO_PUBLIC_NATIVE_WEBRTC_ENABLED=true` verilebilir.
 
 ## Kontrol Noktalari
 
@@ -132,6 +142,6 @@ yazilmaz; bu akis yalnizca LAN gelistirme testi icindir.
 
 ## Siradaki Eksikler
 
-1. Dis ag icin TURN server eklemek
-2. Kullanici girisi ve yetkilendirme eklemek
-3. Sifreleri mobil uygulamaya koymadan backend/gateway tarafinda tutmak
+1. Tek `.env` kullanicisini veritabani ve kamera bazli yetkilendirmeyle degistirmek
+2. TURN icin kisa omurlu credential servisi eklemek
+3. Native WebRTC yolunu hedef Android surumunde dogrulamak

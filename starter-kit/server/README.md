@@ -13,6 +13,11 @@ Bu klasor, WebRTC baglantisindan once taraflar arasindaki mesajlari tasir.
 
 ## HTTP Uç Noktalari
 
+### `POST /auth/login`
+`.env` icindeki signaling kullanici adi/parolasini dogrular ve 60 dakikalik rastgele
+access token dondurur. Token server memory'sinde tutulur; mobil uygulama da tokeni
+yalnizca calisan uygulamanin belleğinde saklar.
+
 ### `GET /health`
 Server calisiyor mu ve kac oda var, onu gosterir.
 
@@ -20,7 +25,16 @@ Server calisiyor mu ve kac oda var, onu gosterir.
 Aktif odalari ve onlara bagli client'lari listeler.
 
 ### `GET /cameras`
-Gateway host, stream name, player URL ve opsiyonel go2rtc auth header bilgisini dondurur.
+Stream name, signaling player yolu ve ICE server bilgisini dondurur.
+Gateway adresi veya go2rtc kimlik bilgisi dondurmez.
+
+### `GET /player?src=ofis_kamera`
+Bearer token ile acilir, kisa omurlu HttpOnly player oturumu olusturur ve
+WebRTC player sayfasini sunar. Player ayni origin `/ws` signaling baglantisini kullanir.
+
+### `GET /gateway/status?src=ofis_kamera`
+go2rtc durumunu server tarafinda Basic Auth ile kontrol eder. RTSP URL veya credential
+istemciye aktarilmaz.
 
 ## WebSocket Uç Noktasi
 
@@ -43,22 +57,36 @@ Mesaj ornegi:
 ## Su Anki Sinir
 
 Bu server su an video tasimaz.
-Ayrica go2rtc player ile calisan `Canli` sekmesi bu signaling server'i kullanarak acilmiyor.
+Native WebRTC istemcisinden gelen SDP/ICE mesajlarini yetkili bir WebSocket ile
+yerel go2rtc `/api/ws` endpoint'ine kopruler. Medya signaling server'dan gecmez;
+ICE tarafindan secilen dogrudan veya TURN relay yolu uzerinden akar.
 
-Su an iki ayri dogrulama var:
+Canli ekran iki katmanli calisir:
 
 - `Durum` sekmesi signaling server'a baglanir
-- `Canli` sekmesi go2rtc player'i WebView icinde acar
+- `Canli` sekmesi varsayilan olarak signaling server'in kimlik dogrulamali WebRTC
+  player sayfasini acar
+- `EXPO_PUBLIC_NATIVE_WEBRTC_ENABLED=true` verilirse once native WebRTC +
+  signaling koprusunu dener ve basarisiz olursa WebView fallback'e doner
 
 Bu ayrim bilincli olarak korunuyor.
-Cunku native `react-native-webrtc` denemesi Android emulator tarafinda native crash uretmistir.
+Cunku native `react-native-webrtc` denemesi hedef Android 16 cihazda native crash uretmistir.
 
 ## Opsiyonel Guvenlik Katmanlari
 
 `.env` ile su alanlar desteklenir:
 
 - `SIGNALING_AUTH_TOKEN`
-  - doluysa `/rooms`, `/cameras` ve `/ws` bearer token ister
+  - server yonetim/operasyon tokenidir, en az 32 karakter olmalidir
+  - mobil APK'ya verilmez
+- `SIGNALING_AUTH_USERNAME`
+- `SIGNALING_AUTH_PASSWORD`
+  - mobil kullanici girisi icin server tarafinda tutulur
+  - parola en az 12 karakter olmalidir
+  - basarili giris `/rooms`, `/cameras`, `/player`, `/gateway/status` ve `/ws`
+    icin kisa omurlu session tokeni uretir
+- Yetkili endpointler
+  - admin tokenini veya gecerli session tokenini bearer olarak kabul eder
   - WebSocket tarafinda `?token=...` query param de kabul edilir
 - `SIGNALING_TLS_CERT_PATH`
 - `SIGNALING_TLS_KEY_PATH`
@@ -71,6 +99,13 @@ Cunku native `react-native-webrtc` denemesi Android emulator tarafinda native cr
 
 ### `./start-signaling.sh`
 `.env` dosyasini yukleyip signaling server'i baslatir.
+Token yoksa veya 32 karakterden kisaysa server guvensiz sekilde acilmaz.
+
+Yeni token:
+
+```bash
+openssl rand -hex 32
+```
 
 ### `./generate-dev-cert.sh`
 Lokal HTTPS/WSS testi icin self-signed sertifika uretir.
@@ -93,13 +128,15 @@ EXPO_PUBLIC_SIGNALING_URL="wss://<gecici-host>/ws" npm run android:device
 
 Quick Tunnel yalnizca gelistirme/test icindir. Process kapaninca adres gecersiz olur;
 uretimde sabit domain, erisim politikasi ve yonetilen tunnel kullanilmalidir.
+Tunnel betikleri, QUIC engellenen kurumsal aglarda calisabilmesi icin varsayilan olarak
+TCP/443 uzerinden `http2` kullanir.
 
 ## Sonraki Adim
 
 PDF'teki final mimariye yaklasmak icin siradaki isler:
 
-1. HTTPS/WSS'i gercek sertifika ile aktif etmek
-2. Oda/kamera yetkilendirmesini uygulama auth akisina baglamak
-3. Native WebRTC tekrar denenirse offer/answer/ICE mesajlarini buradan tasimak
-4. Kalici domain ile named tunnel kurmak
-5. Signaling tokenini kullanici auth akisina baglamak
+1. Quick Tunnel yerine sabit domainli named tunnel veya VPS kullanmak
+2. Tek lokal kullaniciyi gercek kullanici veritabani ve kamera yetkileriyle degistirmek
+3. Android 16 ile uyumlu native WebRTC surumunu fiziksel cihazda dogrulamak
+4. Native yol dogrulandiktan sonra `EXPO_PUBLIC_NATIVE_WEBRTC_ENABLED=true` yapmak
+5. Statik TURN kimlik bilgilerini kisa omurlu kimlik bilgileriyle degistirmek

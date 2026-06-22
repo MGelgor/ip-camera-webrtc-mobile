@@ -5,6 +5,7 @@ import {
   RTCPeerConnection,
   RTCSessionDescription,
 } from "react-native-webrtc";
+import type { IceServerConfig } from "../cameras";
 
 type WebRtcState = "idle" | "connecting" | "connected" | "closing" | "disconnected" | "error";
 
@@ -20,6 +21,8 @@ export type WebRtcSnapshot = {
 type Options = {
   wsUrl: string;
   streamName: string;
+  authToken?: string | null;
+  iceServers?: IceServerConfig[];
   autoConnect?: boolean;
   enabled?: boolean;
 };
@@ -43,16 +46,35 @@ function safeState(status: WebRtcState, connected: boolean) {
   return status;
 }
 
-// This hook is the first real media layer.
-// It talks directly to go2rtc's WebRTC WebSocket endpoint, creates an RTCPeerConnection,
-// and exposes the remote stream URL for rendering in an RTCView.
-export function useGo2RtcWebrtc({ wsUrl, streamName, autoConnect = true, enabled = true }: Options) {
+function withToken(url: string, authToken?: string | null) {
+  if (!authToken) return url;
+
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.set("token", authToken);
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
+// This hook creates the native RTCPeerConnection while the signaling server
+// bridges SDP/ICE messages to go2rtc. Media still uses the ICE-selected path.
+export function useGo2RtcWebrtc({
+  wsUrl,
+  streamName,
+  authToken = null,
+  iceServers = [],
+  autoConnect = true,
+  enabled = true,
+}: Options) {
   const wsRef = useRef<WebSocket | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const remoteStreamRef = useRef<MediaStream>(new MediaStream());
   const pendingCandidatesRef = useRef<RTCIceCandidate[]>([]);
   const closingByUserRef = useRef(false);
   const remoteDescriptionReadyRef = useRef(false);
+  const peerStartedRef = useRef(false);
 
   const [snapshot, setSnapshot] = useState<WebRtcSnapshot>({
     status: autoConnect && enabled ? "connecting" : "idle",
@@ -70,6 +92,7 @@ export function useGo2RtcWebrtc({ wsUrl, streamName, autoConnect = true, enabled
   const resetPeer = useCallback(() => {
     pendingCandidatesRef.current = [];
     remoteDescriptionReadyRef.current = false;
+    peerStartedRef.current = false;
     remoteStreamRef.current = new MediaStream();
   }, []);
 
@@ -128,20 +151,35 @@ export function useGo2RtcWebrtc({ wsUrl, streamName, autoConnect = true, enabled
       lastMessage: `${timestamp()} · go2rtc bağlantısı deneniyor.`,
     }));
 
-    const socket = new WebSocket(wsUrl);
+    const socket = new WebSocket(withToken(wsUrl, authToken));
     wsRef.current = socket;
-    socket.onopen = async () => {
+    socket.onopen = () => {
       if (closingByUserRef.current) return;
+
+      socket.send(
+        JSON.stringify({
+          type: "join",
+          room: streamName,
+          role: "viewer",
+          name: "mobile-webrtc-viewer",
+        }),
+      );
+    };
+
+    async function startPeerConnection() {
+      if (closingByUserRef.current || peerStartedRef.current) return;
+      peerStartedRef.current = true;
 
       const pc = new RTCPeerConnection({
         bundlePolicy: "max-bundle",
-        iceServers: [
-          {
-            urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"],
-          },
-        ],
+        iceServers:
+          iceServers.length > 0
+            ? iceServers
+            : [{ urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"] }],
       });
       pcRef.current = pc;
+      pc.addTransceiver("video", { direction: "recvonly" });
+      pc.addTransceiver("audio", { direction: "recvonly" });
 
       const pcAny = pc as any;
 
@@ -190,10 +228,7 @@ export function useGo2RtcWebrtc({ wsUrl, streamName, autoConnect = true, enabled
         }));
       });
 
-      const offer = await pc.createOffer({
-        offerToReceiveAudio: true,
-        offerToReceiveVideo: true,
-      });
+      const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
       socket.send(
@@ -207,7 +242,7 @@ export function useGo2RtcWebrtc({ wsUrl, streamName, autoConnect = true, enabled
         ...current,
         lastMessage: `${timestamp()} · webrtc/offer gönderildi.`,
       }));
-    };
+    }
 
     socket.onmessage = async (event) => {
       let parsed: Record<string, unknown>;
@@ -222,6 +257,15 @@ export function useGo2RtcWebrtc({ wsUrl, streamName, autoConnect = true, enabled
       }
 
       const type = String(parsed.type ?? "message");
+
+      if (type === "joined") {
+        sync((current) => ({
+          ...current,
+          lastMessage: `${timestamp()} · Signaling odasina katilindi.`,
+        }));
+        await startPeerConnection();
+        return;
+      }
 
       if (type === "error") {
         const message = String(parsed.value ?? parsed.message ?? "go2rtc hata verdi.");
@@ -309,7 +353,7 @@ export function useGo2RtcWebrtc({ wsUrl, streamName, autoConnect = true, enabled
         lastMessage: `${timestamp()} · WebSocket kapandı.`,
       }));
     };
-  }, [enabled, resetPeer, streamName, sync, wsUrl]);
+  }, [authToken, enabled, iceServers, resetPeer, streamName, sync, wsUrl]);
 
   useEffect(() => {
     if (enabled && autoConnect) {
