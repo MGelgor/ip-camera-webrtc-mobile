@@ -26,6 +26,8 @@ type Props = {
   nativeWebRtcEnabled: boolean;
 };
 
+type IceMode = "auto" | "stun" | "turn";
+
 // This is the first stable media screen.
 // Instead of opening the RTSP address inside the app, it loads go2rtc's player.
 // Flow:
@@ -50,11 +52,13 @@ export function LiveScreen({
   const webViewRef = useRef<WebViewType>(null);
   const fullscreenWebViewRef = useRef<WebViewType>(null);
   const gatewayFailureCount = useRef(0);
+  const iceModeRef = useRef<IceMode>("auto");
   const [isLoading, setIsLoading] = useState(true);
   const [hasPlayerLoadError, setHasPlayerLoadError] = useState(false);
   const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
   const [isGatewayOffline, setIsGatewayOffline] = useState(false);
   const [iceRoute, setIceRoute] = useState<"checking" | "direct" | "stun" | "turn">("checking");
+  const [iceMode, setIceMode] = useState<IceMode>("auto");
   const [useWebViewFallback, setUseWebViewFallback] = useState(!nativeWebRtcEnabled);
   const nativeWebRtc = useGo2RtcWebrtc({
     wsUrl: signalingUrl,
@@ -86,8 +90,10 @@ export function LiveScreen({
       const message = JSON.parse(event.nativeEvent.data) as {
         type?: string;
         candidateType?: string;
+        iceMode?: IceMode;
       };
       if (message.type !== "ice-route") return;
+      if (message.iceMode !== iceModeRef.current) return;
       if (message.candidateType === "relay") setIceRoute("turn");
       else if (message.candidateType === "srflx" || message.candidateType === "prflx") setIceRoute("stun");
       else if (message.candidateType === "host") setIceRoute("direct");
@@ -104,6 +110,20 @@ export function LiveScreen({
         : iceRoute === "direct"
           ? copy.routeDirect
           : copy.routeChecking;
+  const effectivePlayerUrl = `${playerUrl}${playerUrl.includes("?") ? "&" : "?"}iceMode=${iceMode}`;
+
+  function selectIceMode(mode: IceMode) {
+    if (mode === iceMode) {
+      reloadPlayer();
+      return;
+    }
+    setIceRoute("checking");
+    setHasPlayerLoadError(false);
+    setIsGatewayOffline(false);
+    setIsLoading(true);
+    iceModeRef.current = mode;
+    setIceMode(mode);
+  }
 
   useEffect(() => {
     if (!nativeWebRtcEnabled) {
@@ -229,7 +249,7 @@ export function LiveScreen({
           ) : useWebViewFallback && !isFullscreenOpen ? (
             <WebView
               ref={webViewRef}
-              source={{ uri: playerUrl, headers: requestHeaders }}
+              source={{ uri: effectivePlayerUrl, headers: requestHeaders }}
               style={styles.liveVideo}
               allowsInlineMediaPlayback
               javaScriptEnabled
@@ -241,6 +261,7 @@ export function LiveScreen({
               startInLoadingState
               onLoadStart={() => {
                 setIsLoading(true);
+                setIceRoute("checking");
                 setHasPlayerLoadError(false);
                 setIsGatewayOffline(false);
                 gatewayFailureCount.current = 0;
@@ -333,6 +354,34 @@ export function LiveScreen({
           </Pressable>
         </View>
 
+        <Text style={[styles.signalLogLabel, { color: theme.textSoft }]}>{copy.modeLabel}</Text>
+        <View style={styles.liveActionRow}>
+          {([
+            ["auto", copy.modeAuto],
+            ["stun", copy.modeStun],
+            ["turn", copy.modeTurn],
+          ] as Array<[IceMode, string]>).map(([mode, label]) => {
+            const selected = iceMode === mode;
+            return (
+              <Pressable
+                key={mode}
+                onPress={() => selectIceMode(mode)}
+                style={[
+                  styles.liveActionButton,
+                  {
+                    backgroundColor: selected ? theme.accent : theme.tabBackground,
+                    borderColor: selected ? theme.accent : theme.border,
+                  },
+                ]}
+              >
+                <Text style={[styles.liveActionButtonText, { color: selected ? "#ffffff" : theme.text }]}>
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
         <View style={[styles.signalLogBox, { borderColor: theme.border, backgroundColor: theme.surface }]}>
           <Text style={[styles.signalLogLabel, { color: theme.textSoft }]}>{copy.sourceLabel}</Text>
           <Text style={[styles.signalLogText, { color: theme.text }]}>{cameraName}</Text>
@@ -343,7 +392,7 @@ export function LiveScreen({
             {routeLabel}
           </Text>
           <Text style={[styles.signalLogText, { color: theme.textMuted }]}>
-            {nativeStreamUrl ? signalingUrl : playerUrl}
+            {nativeStreamUrl ? signalingUrl : effectivePlayerUrl}
           </Text>
         </View>
       </View>
@@ -381,7 +430,7 @@ export function LiveScreen({
             ) : useWebViewFallback ? (
               <WebView
                 ref={fullscreenWebViewRef}
-                source={{ uri: playerUrl, headers: requestHeaders }}
+                source={{ uri: effectivePlayerUrl, headers: requestHeaders }}
                 style={styles.liveFullscreenVideo}
                 allowsInlineMediaPlayback
                 javaScriptEnabled

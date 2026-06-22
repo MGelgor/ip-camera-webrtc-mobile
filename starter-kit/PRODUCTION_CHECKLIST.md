@@ -138,6 +138,7 @@ IP Kamera
 - [x] Android 16 native WebRTC SIGABRT durumunda native yolu cihaz seviyesinde kapat
 - [x] Mobil veride erisilemeyen LAN signaling icin sonsuz login yerine 10 saniye timeout ekle
 - [x] Canli ekranda secilen ICE yolunu Dogrudan/STUN/TURN olarak goster
+- [x] Tek agda test icin Otomatik/STUN-only/TURN-only ICE debug secicisi ekle
 - [ ] Metro/USB gerektirmeyen imzali Android release build uret
 - [ ] Native `react-native-webrtc` yolunu tekrar degerlendir
 
@@ -161,6 +162,10 @@ IP Kamera
   candidate pair raporundan `Dogrudan (STUN)` sonucunu gosterdi. Normal APK'da
   relay zorlama yoktur; TURN yalnizca dogrudan ICE yolu kurulamazsa yedek olarak
   kullanilir.
+- Ayni cihazda `STUN` modu TURN sunucularini listeden cikararak `Dogrudan (STUN)`,
+  `TURN` modu ise yalniz TURN sunucusunu ve `iceTransportPolicy=relay` kullanarak
+  `TURN relay` sonucunu verdi. Iki modda da canli goruntu ve uygulama process'i
+  ayakta kaldi. `Otomatik` modu normal ICE tercih davranisini korur.
 
 - 2026-06-19 testinde Samsung S24 FE (Android 16 / API 36) USB ADB ile baglandi.
 - Uygulama fiziksel telefona kuruldu; gateway auth aktifken `ofis_kamera` WebRTC

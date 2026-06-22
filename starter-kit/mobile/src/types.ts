@@ -126,6 +126,10 @@ export type AppCopy = {
     routeDirect: string;
     routeStun: string;
     routeTurn: string;
+    modeLabel: string;
+    modeAuto: string;
+    modeStun: string;
+    modeTurn: string;
     lastMessageLabel: string;
     lastMessageEmpty: string;
   };

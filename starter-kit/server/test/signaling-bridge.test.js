@@ -213,6 +213,22 @@ test("viewer SDP and ICE are bridged to authenticated go2rtc", async (context) =
   assert.match(authorizedPlayer.headers["set-cookie"][0], /HttpOnly/);
   assert.match(authorizedPlayer.headers["content-security-policy"], /default-src 'none'/);
   assert.doesNotMatch(authorizedPlayer.body, /gateway-pass|admin:secret/);
+  assert.match(authorizedPlayer.body, /"iceTransportPolicy":"all"/);
+
+  const turnOnlyPlayer = await httpRequest(
+    signalingPort,
+    "/player?src=ofis_kamera&iceMode=turn",
+    accessToken,
+  );
+  assert.equal(turnOnlyPlayer.statusCode, 200);
+  assert.match(turnOnlyPlayer.body, /"iceTransportPolicy":"relay"/);
+
+  const invalidIceMode = await httpRequest(
+    signalingPort,
+    "/player?src=ofis_kamera&iceMode=invalid",
+    accessToken,
+  );
+  assert.equal(invalidIceMode.statusCode, 400);
 
   const playerCookie = authorizedPlayer.headers["set-cookie"][0].split(";")[0];
   const cookieCannotReadCatalog = await httpJson(signalingPort, "/cameras", null, {

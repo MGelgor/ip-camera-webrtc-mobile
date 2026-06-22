@@ -356,11 +356,24 @@ function createPlayerSession(req, res) {
   res.setHeader("Set-Cookie", attributes.join("; "));
 }
 
-function playerHtml(streamName) {
+function playerHtml(streamName, iceMode = "auto") {
   const nonce = crypto.randomBytes(18).toString("base64");
+  const allIceServers = cameraCatalog()[0].iceServers;
+  const matchesProtocol = (server, protocol) =>
+    server.urls.some((serverUrl) => String(serverUrl).startsWith(`${protocol}:`));
+  const iceServers =
+    iceMode === "stun"
+      ? allIceServers.filter((server) => matchesProtocol(server, "stun"))
+      : iceMode === "turn"
+        ? allIceServers.filter(
+            (server) => matchesProtocol(server, "turn") || matchesProtocol(server, "turns"),
+          )
+        : allIceServers;
   const playerConfig = JSON.stringify({
     streamName,
-    iceServers: cameraCatalog()[0].iceServers,
+    iceMode,
+    iceServers,
+    iceTransportPolicy: iceMode === "turn" ? "relay" : "all",
   }).replace(/</g, "\\u003c");
 
   return {
@@ -423,8 +436,12 @@ function playerHtml(streamName) {
         if (!selectedPair) return false;
         const local = stats.get(selectedPair.localCandidateId);
         const remote = stats.get(selectedPair.remoteCandidateId);
-        const candidateType = String(local?.candidateType || remote?.candidateType || "unknown");
-        postToApp({ type: "ice-route", candidateType });
+        const candidateType = String(
+          config.iceTransportPolicy === "relay"
+            ? "relay"
+            : local?.candidateType || remote?.candidateType || "unknown",
+        );
+        postToApp({ type: "ice-route", candidateType, iceMode: config.iceMode });
         return candidateType !== "unknown";
       }
 
@@ -450,7 +467,11 @@ function playerHtml(streamName) {
       }
 
       async function startPeer() {
-        peer = new RTCPeerConnection({ bundlePolicy: "max-bundle", iceServers: config.iceServers });
+        peer = new RTCPeerConnection({
+          bundlePolicy: "max-bundle",
+          iceServers: config.iceServers,
+          iceTransportPolicy: config.iceTransportPolicy,
+        });
         peer.addTransceiver("video", { direction: "recvonly" });
         peer.addTransceiver("audio", { direction: "recvonly" });
         peer.ontrack = (event) => {
@@ -467,7 +488,12 @@ function playerHtml(streamName) {
         };
         peer.onconnectionstatechange = () => {
           if (peer.connectionState === "failed") fail("WebRTC baglantisi kurulamadi.");
-          if (peer.connectionState === "connected") startRouteReporter();
+          if (peer.connectionState === "connected") {
+            if (config.iceTransportPolicy === "relay") {
+              postToApp({ type: "ice-route", candidateType: "relay", iceMode: config.iceMode });
+            }
+            startRouteReporter();
+          }
         };
 
         const offer = await peer.createOffer();
@@ -868,10 +894,16 @@ const requestHandler = async (req, res) => {
       return;
     }
 
+    const iceMode = String(url.searchParams.get("iceMode") ?? "auto").trim();
+    if (!["auto", "stun", "turn"].includes(iceMode)) {
+      writeJson(res, 400, { ok: false, error: "Invalid ICE mode" });
+      return;
+    }
+
     if (!playerSessionExpiry(req)) {
       createPlayerSession(req, res);
     }
-    const player = playerHtml(streamName);
+    const player = playerHtml(streamName, iceMode);
     res.setHeader(
       "Content-Security-Policy",
       `default-src 'none'; script-src 'nonce-${player.nonce}'; style-src 'nonce-${player.nonce}'; ` +
