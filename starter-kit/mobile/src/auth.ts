@@ -23,9 +23,7 @@ export async function loginToSignaling(
     });
   } catch {
     throw new Error(
-      signalingUrl.startsWith("ws://")
-        ? "Signaling sunucusuna erisilemedi. Mobil veri icin public WSS adresi gerekir."
-        : "Signaling sunucusuna erisilemedi. Ag baglantisini kontrol et.",
+      "Signaling sunucusuna erisilemedi. Sunucu adresini ve port forwarding'i kontrol et.",
     );
   } finally {
     clearTimeout(timeout);

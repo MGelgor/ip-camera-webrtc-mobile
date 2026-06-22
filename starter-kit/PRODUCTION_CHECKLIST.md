@@ -177,6 +177,13 @@ IP Kamera
 
 ### Dis Ag Test Notlari
 
+- 2026-06-22 karari: ortak agdaki public `80/443` portlari projeye ayrilmayacak.
+  Ilk global fonksiyon testi icin ayrik `13000/TCP -> Mac:3000/TCP` forwarding
+  kullanilacak. Bu asama sifresiz `ws://` oldugu icin yalnizca kontrollu debug
+  testidir; sonraki guvenlik asamasinda ayni public port WSS/TLS arkasina alinacak.
+- Public WS arm64 debug APK akisi `npm run android:build:public-ws` olarak eklendi.
+  Router mapping ve fiziksel telefon ADB baglantisi olmadigi icin 5G testi bekliyor.
+
 - 2026-06-19 testinde Mac sirket Wi-Fi aginda signaling servisini tum arayuzlerde
   `:3000` portunda dinledi; macOS application firewall kapaliydi.
 - Samsung S24 FE Wi-Fi kapatilarak mobil veriye gecirildi. Telefon mobil internet

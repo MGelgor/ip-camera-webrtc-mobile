@@ -20,6 +20,7 @@
     "start:android:emulator": "sh ./scripts/start-expo-android-emulator.sh",
     "android:device": "bash ./scripts/run-android-device.sh",
     "android:build": "bash ./scripts/build-android-debug.sh",
+    "android:build:public-ws": "bash ./scripts/build-android-public-ws-debug.sh",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web"

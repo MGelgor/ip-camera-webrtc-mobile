@@ -134,6 +134,17 @@ Betik varsayilan olarak fiziksel Samsung hedefi icin yalnizca `arm64-v8a` APK
 uretir. Universal debug APK gerekirse `ANDROID_ABIS=arm64-v8a,armeabi-v7a,x86,x86_64`
 ile override edilebilir.
 
+Gecici, sifresiz public port-forwarding fonksiyon testi icin:
+
+```bash
+npm run android:build:public-ws
+```
+
+Bu build `.env` icindeki `SIGNALING_PUBLIC_HOST` (yoksa `TURN_PUBLIC_IP`) ve
+`SIGNALING_PUBLIC_PORT` degerlerinden `ws://host:port/ws` uretir. Login ve session
+trafigi TLS ile korunmadigi icin yalnizca kontrollu testte kullanilmali, production
+dagitimi olarak birakilmamalidir.
+
 Uygulama her yeniden acildiginda giris ister. Session tokeni yalnizca uygulama belleginde
 tutulur ve server tarafinda 60 dakika sonra gecersiz olur.
 
