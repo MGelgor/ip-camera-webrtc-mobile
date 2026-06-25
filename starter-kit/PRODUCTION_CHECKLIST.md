@@ -9,13 +9,15 @@ yaklastirmak icin takip listesidir.
 IP Kamera
   -> RTSP
   -> go2rtc
-  -> go2rtc player
+  -> WebRTC
+  -> signaling bridge
   -> React Native WebView
   -> Android uygulama
 ```
 
-Bu akis lokal demo icin calisiyor.
-Ancak final urun icin yeterli degil.
+Bu akis lokal agda ve Samsung S24 FE 5G testinde calisiyor. WebView yalnizca
+istemci kabidir; medya WebRTC/SRTP olarak tasinir. Production guvenlik ve isletim
+eksikleri kapanmadan final urun sayilmaz.
 
 ## 2. PDF'in Ana Hedef Akisi
 
@@ -26,7 +28,7 @@ IP Kamera
   -> WebRTC
   -> Signaling Server
   -> STUN/TURN
-  -> Native Mobil WebRTC Client
+  -> Mobil WebRTC Client (native veya PDF 6.3 WebView kabi)
 ```
 
 ## 3. Kapatilacak Eksikler
@@ -102,7 +104,7 @@ IP Kamera
 - [x] Session/rate-limit bellek kayitlarini sureli temizle ve ust sinir koy
 - [x] Gecici public tunnel ile gercek sertifikali WSS baglantisini fiziksel cihazda dogrula
 - [x] Yerel signaling'i Mac kullanici oturumu acildiginda otomatik baslat
-- [ ] Named tunnel'i Mac reboot sonrasi otomatik baslat
+- [x] Cloudflare/named tunnel'i kalici mimariden cikar; public signaling'i dogrudan WSS/TLS ile planla
 
 ### 2026-06-22 Servis Dogrulamasi
 
@@ -139,7 +141,8 @@ IP Kamera
 - [x] Mobil veride erisilemeyen LAN signaling icin sonsuz login yerine 10 saniye timeout ekle
 - [x] Canli ekranda secilen ICE yolunu Dogrudan/STUN/TURN olarak goster
 - [x] Tek agda test icin Otomatik/STUN-only/TURN-only ICE debug secicisi ekle
-- [ ] Metro/USB gerektirmeyen imzali Android release build uret
+- [x] Debug anahtarina dusmeyen, WSS zorunlu Android release imzalama akisini hazirla
+- [ ] Production application ID, keystore ve `.env.release`/secret manager bilgileriyle imzali release APK uret
 - [ ] Native `react-native-webrtc` yolunu tekrar degerlendir
 
 ### Mobil Test Notlari
@@ -246,8 +249,7 @@ IP Kamera
 - [x] Gecici public signaling'i Keychain tabanli bearer token ile koru
 - [x] HTTPS/WSS icin kod ve script hazirligi
 - [x] Gecici public HTTPS/WSS dis ag testi
-- [x] Named Cloudflare Tunnel ingress config ornegini hazirla
-- [ ] Cloudflare hesabini ve alan adini Mac'e yetkilendir
+- [x] Cloudflare'in production mimarisinde kullanilmayacagini karara bagla
 - [ ] Kalici domain ve production HTTPS/WSS kurulumu
 - [x] Signaling kamera katalogundan auth header ve RTSP credential cikmadigini dogrula
 - [x] go2rtc auth bilgisini mobil uygulama paketinden cikarip signaling player/proxy arkasina al
@@ -261,20 +263,23 @@ IP Kamera
 
 ## 4. Siradaki En Mantikli Sira
 
-1. Android 16 uyumlu bir native WebRTC surumuyle native/fallback yolunu yeniden test et
-2. Mevcut public IP degisirse manuel guncelleme veya DDNS secenegini degerlendir
-3. Production asamasinda public signaling'i WSS/TLS arkasina al
-4. Farkli Wi-Fi agindan test et
+1. Public signaling'i WSS/TLS arkasina al; login bilgisini duz HTTP uzerinden tasima
+2. Production kullanici veritabani, kamera bazli yetki ve kisa omurlu TURN credential ekle
+3. Production application ID/keystore ile imzali release APK uret
+4. Mevcut public IP degisirse manuel guncelleme veya DDNS kararini uygula
+5. Farkli Wi-Fi agindan saha testi yap
+6. Android 16 uyumlu native WebRTC surumu ciktiginda native yolu yeniden degerlendir
 
 ## 5. Karar Notu
 
-WebView yaklasimi su an bilincli bir ara cozumdur.
-PDF'te alternatif olarak yer alir ve demo icin uygundur.
+WebView yaklasimi su an bilincli, calisan ve tercih edilen cozumdur. PDF 6.3'te
+alternatif WebRTC istemci kabi olarak yer alir; medya WebRTC olarak kalir.
 
 Final urunde iki secenek vardir:
 
 1. WebView yaklasimini kabul edip UX ve guvenligi guclendirmek
 2. Native `react-native-webrtc` entegrasyonuna geri donmek
 
-Native WebRTC daha dogru final mimaridir.
-WebView daha hizli ve su an daha stabil calisan yoldur.
+Native istemci zorunlu bir production kosulu degildir. Android 16/API 36'daki
+libjingle SIGABRT giderilene kadar WebView yolu production'a hazirlanacak,
+native yol ise daha sonra yeniden degerlendirilecektir.

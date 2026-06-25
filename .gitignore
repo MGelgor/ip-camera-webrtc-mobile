@@ -8,6 +8,8 @@
 starter-kit/.env
 starter-kit/.env.*
 !starter-kit/.env.example
+starter-kit/mobile/.env.release
+!starter-kit/mobile/.env.release.example
 
 # node / build artifacts
 node_modules/

@@ -167,3 +167,22 @@ Kontrollu test icin ek olarak `EXPO_PUBLIC_NATIVE_WEBRTC_ENABLED=true` verilebil
 1. Tek `.env` kullanicisini veritabani ve kamera bazli yetkilendirmeyle degistirmek
 2. TURN icin kisa omurlu credential servisi eklemek
 3. Native WebRTC yolunu hedef Android surumunde dogrulamak
+
+## Imzali Android Release
+
+Release build yalnizca `wss://` signaling adresiyle ve ayri bir production
+keystore ile uretilir. Debug anahtari release icin kullanilmaz. Gercek keystore'u
+repoya koymayin; `mobile/.env.release.example` dosyasini ignore edilen
+`mobile/.env.release` olarak kopyalayip yol, alias ve parolalari orada veya bir
+secret manager uzerinden saglayin. Bu ayri dosya signaling LaunchAgent tarafindan
+yuklenmez.
+
+Production application ID secildikten ve release alanlari tanimlandiktan sonra:
+
+```bash
+npm run android:build:release
+```
+
+Script eksik alan, bulunamayan keystore, `ws://` adresi veya imzasiz APK gorurse
+build'i hata ile durdurur. Cikti `android/app/build/outputs/apk/release/` altinda
+olur ve SHA-256 degeri secret yazdirilmadan raporlanir.
