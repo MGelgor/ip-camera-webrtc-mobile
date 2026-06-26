@@ -8,6 +8,7 @@ Bu klasor, WebRTC baglantisindan once taraflar arasindaki mesajlari tasir.
 - Oda bilgisi listeler
 - WebSocket uzerinden baglanti kabul eder
 - `join`, `leave`, `offer`, `answer`, `ice-candidate` mesajlarini relaye eder
+- gateway kamera panelinden yeni RTSP kamerasi ekler
 - temel rate-limit uygular
 - maskeli baglanti loglari yazar
 
@@ -27,6 +28,15 @@ Aktif odalari ve onlara bagli client'lari listeler.
 ### `GET /cameras`
 Stream name, signaling player yolu ve ICE server bilgisini dondurur.
 Gateway adresi veya go2rtc kimlik bilgisi dondurmez.
+
+### `GET /admin`
+Browser'da gateway kamera panelini acar. `SIGNALING_AUTH_USERNAME` ve
+`SIGNALING_AUTH_PASSWORD` ile Basic Auth kullanir.
+
+### `POST /admin/cameras`
+Panelin kullandigi endpointtir. Kamera adi, konum, stream adi ve RTSP adresini alir;
+go2rtc'ye `PUT /api/streams` ile stream ekler ve server-side katalog dosyasina kaydeder.
+RTSP adresi mobil `/cameras` yanitina eklenmez.
 
 ### `GET /player?src=ofis_kamera`
 Bearer token ile acilir, kisa omurlu HttpOnly player oturumu olusturur ve
@@ -101,6 +111,10 @@ Cunku native `react-native-webrtc` denemesi hedef Android 16 cihazda native cras
 - `SIGNALING_TRUST_PROXY=true`
   - yalnizca loopback'ten baglanan guvenilir reverse proxy icin
     `CF-Connecting-IP`/`X-Forwarded-For` basliklarini istemci IP'si olarak kabul eder
+- `CAMERA_CATALOG_PATH`
+  - panelden eklenen kameralarin server-side JSON dosyasidir
+  - RTSP credential bilgisi burada tutulabilir; mobil katalog yanitina dondurulmez
+  - server acilista bu dosyadaki RTSP'li kameralar icin go2rtc stream'lerini tekrar senkronize eder
 
 ## Yardimci Scriptler
 

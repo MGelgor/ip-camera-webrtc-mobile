@@ -1,7 +1,9 @@
 const assert = require("node:assert/strict");
 const { spawn } = require("node:child_process");
+const fs = require("node:fs");
 const http = require("node:http");
 const net = require("node:net");
+const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const WebSocket = require("ws");
@@ -108,17 +110,39 @@ async function httpJson(port, path, token = null, options = {}) {
 test("viewer SDP and ICE are bridged to authenticated go2rtc", async (context) => {
   const gatewayPort = await openPort();
   const signalingPort = await openPort();
+  const catalogDir = fs.mkdtempSync(path.join(os.tmpdir(), "camera-catalog-"));
+  const catalogPath = path.join(catalogDir, "cameras.json");
+  context.after(() => fs.rmSync(catalogDir, { recursive: true, force: true }));
+  const gatewayStreams = new Map([
+    [
+      "ofis_kamera",
+      {
+        producers: [{ url: "rtsp://admin:secret@camera/live/main" }],
+        consumers: [],
+      },
+    ],
+  ]);
   const gatewayHttp = http.createServer((request, response) => {
     if (request.url === "/api/streams") {
       response.writeHead(200, { "Content-Type": "application/json" });
-      response.end(
-        JSON.stringify({
-          ofis_kamera: {
-            producers: [{ url: "rtsp://admin:secret@camera/live/main" }],
-            consumers: [],
-          },
-        }),
-      );
+      response.end(JSON.stringify(Object.fromEntries(gatewayStreams)));
+      return;
+    }
+    if (request.method === "PUT" && request.url?.startsWith("/api/streams?")) {
+      const url = new URL(request.url, "http://127.0.0.1");
+      const streamName = url.searchParams.get("name");
+      const source = url.searchParams.get("src");
+      if (!streamName || !source) {
+        response.writeHead(400);
+        response.end();
+        return;
+      }
+      gatewayStreams.set(streamName, {
+        producers: [{ url: source }],
+        consumers: [],
+      });
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({ ok: true }));
       return;
     }
     response.writeHead(404);
@@ -154,6 +178,7 @@ test("viewer SDP and ICE are bridged to authenticated go2rtc", async (context) =
       SIGNALING_AUTH_TOKEN: SIGNALING_TOKEN,
       SIGNALING_AUTH_USERNAME: LOGIN_USERNAME,
       SIGNALING_AUTH_PASSWORD: LOGIN_PASSWORD,
+      CAMERA_CATALOG_PATH: catalogPath,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -198,6 +223,38 @@ test("viewer SDP and ICE are bridged to authenticated go2rtc", async (context) =
   assert.equal("gatewayHost" in authorizedHttp.body.cameras[0], false);
   assert.equal("gatewayBaseUrl" in authorizedHttp.body.cameras[0], false);
 
+  const adminUnauthorized = await httpRequest(signalingPort, "/admin");
+  assert.equal(adminUnauthorized.statusCode, 401);
+  assert.match(adminUnauthorized.headers["www-authenticate"], /Basic/);
+
+  const basicAuth = `Basic ${Buffer.from(`${LOGIN_USERNAME}:${LOGIN_PASSWORD}`).toString("base64")}`;
+  const adminPage = await httpRequest(signalingPort, "/admin", null, {
+    headers: { Authorization: basicAuth },
+  });
+  assert.equal(adminPage.statusCode, 200);
+  assert.match(adminPage.body, /Gateway Kamera Paneli/);
+
+  const addCamera = await httpJson(signalingPort, "/admin/cameras", null, {
+    method: "POST",
+    headers: { Authorization: basicAuth },
+    body: {
+      name: "Depo Kamera",
+      location: "Depo giris",
+      streamName: "depo_kamera",
+      rtspUrl: "rtsp://depo-user:depo-secret@camera.local/live",
+    },
+  });
+  assert.equal(addCamera.statusCode, 201);
+  assert.equal(addCamera.body.camera.streamName, "depo_kamera");
+  assert.equal("rtspUrl" in addCamera.body.camera, false);
+  assert.equal(gatewayStreams.get("depo_kamera").producers.length, 1);
+
+  const expandedCatalog = await httpJson(signalingPort, "/cameras", accessToken);
+  assert.equal(expandedCatalog.statusCode, 200);
+  assert.equal(expandedCatalog.body.cameras.length, 2);
+  assert.equal(expandedCatalog.body.cameras[1].streamName, "depo_kamera");
+  assert.doesNotMatch(JSON.stringify(expandedCatalog.body), /depo-secret/);
+
   const unauthorizedPlayer = await httpRequest(
     signalingPort,
     "/player?src=ofis_kamera",
@@ -229,6 +286,13 @@ test("viewer SDP and ICE are bridged to authenticated go2rtc", async (context) =
     accessToken,
   );
   assert.equal(invalidIceMode.statusCode, 400);
+
+  const secondCameraPlayer = await httpRequest(
+    signalingPort,
+    "/player?src=depo_kamera",
+    accessToken,
+  );
+  assert.equal(secondCameraPlayer.statusCode, 200);
 
   const playerCookie = authorizedPlayer.headers["set-cookie"][0].split(";")[0];
   const cookieCannotReadCatalog = await httpJson(signalingPort, "/cameras", null, {

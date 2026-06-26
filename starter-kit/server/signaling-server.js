@@ -22,11 +22,13 @@ const WebSocket = require("ws");
 const PORT = Number(process.env.SIGNALING_PORT ?? process.env.PORT ?? 3000);
 const GATEWAY_HOST = process.env.GATEWAY_HOST ?? "10.1.1.3";
 const GATEWAY_API_PORT = Number(process.env.GO2RTC_API_PORT ?? 1984);
+const GATEWAY_REQUEST_TIMEOUT_MS = Number(process.env.GATEWAY_REQUEST_TIMEOUT_MS ?? 2500);
 const GO2RTC_API_USERNAME = process.env.GO2RTC_API_USERNAME ?? "";
 const GO2RTC_API_PASSWORD = process.env.GO2RTC_API_PASSWORD ?? "";
 const CAMERA_STREAM_NAME = process.env.CAMERA_NAME ?? "ofis_kamera";
 const CAMERA_LABEL = process.env.CAMERA_LABEL ?? "Ofis Kamera";
 const CAMERA_LOCATION = process.env.CAMERA_LOCATION ?? "Multitek test alani";
+const CAMERA_CATALOG_PATH = process.env.CAMERA_CATALOG_PATH ?? `${__dirname}/camera-catalog.json`;
 const SIGNALING_AUTH_TOKEN = (process.env.SIGNALING_AUTH_TOKEN ?? "").trim();
 const SIGNALING_AUTH_USERNAME = (process.env.SIGNALING_AUTH_USERNAME ?? "").trim();
 const SIGNALING_AUTH_PASSWORD = process.env.SIGNALING_AUTH_PASSWORD ?? "";
@@ -60,6 +62,7 @@ const rateLimits = new Map();
 const loginRateLimits = new Map();
 const playerSessions = new Map();
 const accessSessions = new Map();
+let cameraCatalogEntries = loadCameraCatalog();
 
 function assertConfiguration() {
   if (SIGNALING_AUTH_TOKEN.length < 32) {
@@ -138,6 +141,72 @@ function logEvent(kind, details) {
   console.log(`[signaling] ${kind}${line ? ` ${line}` : ""}`);
 }
 
+function defaultCameraCatalog() {
+  return [
+    {
+      id: "ofis-kamera",
+      name: CAMERA_LABEL,
+      location: CAMERA_LOCATION,
+      streamName: CAMERA_STREAM_NAME,
+      rtspUrl: "",
+    },
+  ];
+}
+
+function normalizeCameraEntry(entry) {
+  const streamName = String(entry.streamName ?? entry.name ?? "").trim();
+  const id = String(entry.id ?? streamName.replaceAll("_", "-")).trim();
+  return {
+    id,
+    name: String(entry.name ?? streamName).trim(),
+    location: String(entry.location ?? "").trim(),
+    streamName,
+    rtspUrl: String(entry.rtspUrl ?? "").trim(),
+  };
+}
+
+function loadCameraCatalog() {
+  try {
+    const raw = fs.readFileSync(CAMERA_CATALOG_PATH, "utf8");
+    const parsed = JSON.parse(raw);
+    const cameras = Array.isArray(parsed.cameras) ? parsed.cameras : [];
+    const normalized = cameras.map(normalizeCameraEntry).filter((camera) => camera.id && camera.streamName);
+    return normalized.length > 0 ? normalized : defaultCameraCatalog();
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      console.error(`Kamera katalogu okunamadi: ${CAMERA_CATALOG_PATH}`);
+    }
+    return defaultCameraCatalog();
+  }
+}
+
+function saveCameraCatalog() {
+  const payload = {
+    cameras: cameraCatalogEntries,
+    updatedAt: new Date().toISOString(),
+  };
+  fs.writeFileSync(CAMERA_CATALOG_PATH, JSON.stringify(payload, null, 2));
+}
+
+function publicCamera(camera) {
+  const streamName = camera.streamName;
+  return {
+    id: camera.id,
+    name: camera.name,
+    location: camera.location,
+    streamName,
+    playerPath: `/player?src=${encodeURIComponent(streamName)}`,
+    streamStatusPath: `/gateway/status?src=${encodeURIComponent(streamName)}`,
+    room: streamName,
+    iceServers: [
+      ...(STUN_URL ? [{ urls: [STUN_URL] }] : []),
+      ...(TURN_URL && TURN_USER && TURN_PASSWORD
+        ? [{ urls: [TURN_URL], username: TURN_USER, credential: TURN_PASSWORD }]
+        : []),
+    ],
+  };
+}
+
 function takeRateLimit(store, key, windowMs, maxRequests) {
   const now = Date.now();
   const entry = store.get(key);
@@ -200,23 +269,161 @@ function enforceMapLimit(store) {
 }
 
 function cameraCatalog() {
-  return [
-    {
-      id: "ofis-kamera",
-      name: CAMERA_LABEL,
-      location: CAMERA_LOCATION,
-      streamName: CAMERA_STREAM_NAME,
-      playerPath: `/player?src=${encodeURIComponent(CAMERA_STREAM_NAME)}`,
-      streamStatusPath: `/gateway/status?src=${encodeURIComponent(CAMERA_STREAM_NAME)}`,
-      room: CAMERA_STREAM_NAME,
-      iceServers: [
-        ...(STUN_URL ? [{ urls: [STUN_URL] }] : []),
-        ...(TURN_URL && TURN_USER && TURN_PASSWORD
-          ? [{ urls: [TURN_URL], username: TURN_USER, credential: TURN_PASSWORD }]
-          : []),
-      ],
+  return cameraCatalogEntries.map(publicCamera);
+}
+
+function findCameraByStreamName(streamName) {
+  return cameraCatalogEntries.find((camera) => camera.streamName === streamName) ?? null;
+}
+
+function isValidStreamName(streamName) {
+  return /^[a-zA-Z0-9_-]{2,64}$/.test(streamName);
+}
+
+function slugify(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+}
+
+function buildRtspUrl(body) {
+  const directUrl = String(body.rtspUrl ?? "").trim();
+  if (directUrl) return directUrl;
+
+  const host = String(body.host ?? "").trim();
+  const username = String(body.username ?? "").trim();
+  const password = String(body.password ?? "");
+  const port = String(body.port ?? "554").trim() || "554";
+  const path = String(body.path ?? "").trim();
+  if (!host || !path) return "";
+
+  const auth =
+    username || password
+      ? `${encodeURIComponent(username)}:${encodeURIComponent(password)}@`
+      : "";
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `rtsp://${auth}${host}:${port}${normalizedPath}`;
+}
+
+function validateCameraInput(body) {
+  const name = String(body.name ?? "").trim();
+  const location = String(body.location ?? "").trim();
+  const streamName = String(body.streamName ?? slugify(name).replaceAll("-", "_")).trim();
+  const id = String(body.id ?? slugify(streamName.replaceAll("_", "-"))).trim();
+  const rtspUrl = buildRtspUrl(body);
+
+  if (!name) return { error: "Kamera adi zorunlu." };
+  if (!isValidStreamName(streamName)) {
+    return { error: "Stream adi 2-64 karakter olmali; harf, rakam, _ veya - kullan." };
+  }
+  if (!rtspUrl.startsWith("rtsp://") && !rtspUrl.startsWith("rtsps://")) {
+    return { error: "RTSP adresi rtsp:// veya rtsps:// ile baslamali." };
+  }
+  if (cameraCatalogEntries.some((camera) => camera.streamName === streamName || camera.id === id)) {
+    return { error: "Bu kamera veya stream adi zaten kayitli." };
+  }
+
+  return {
+    camera: {
+      id,
+      name,
+      location,
+      streamName,
+      rtspUrl,
     },
-  ];
+  };
+}
+
+function gatewayAuthHeaders() {
+  return GO2RTC_API_USERNAME && GO2RTC_API_PASSWORD
+    ? {
+        Authorization: `Basic ${Buffer.from(
+          `${GO2RTC_API_USERNAME}:${GO2RTC_API_PASSWORD}`,
+          "utf8",
+        ).toString("base64")}`,
+      }
+    : {};
+}
+
+function requestGateway({ method, path }) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const settle = (callback) => {
+      if (settled) return;
+      settled = true;
+      callback();
+    };
+    const request = http.request(
+      {
+        host: GATEWAY_HOST,
+        port: GATEWAY_API_PORT,
+        path,
+        method,
+        headers: gatewayAuthHeaders(),
+        timeout: GATEWAY_REQUEST_TIMEOUT_MS,
+      },
+      (gatewayResponse) => {
+        const chunks = [];
+        gatewayResponse.on("data", (chunk) => chunks.push(chunk));
+        gatewayResponse.on("end", () => {
+          settle(() => {
+            resolve({
+              statusCode: gatewayResponse.statusCode ?? 0,
+              body: Buffer.concat(chunks).toString("utf8"),
+            });
+          });
+        });
+      },
+    );
+    request.on("timeout", () => {
+      settle(() => reject(new Error("Gateway timeout")));
+      request.destroy();
+    });
+    request.on("error", (error) => settle(() => reject(error)));
+    request.end();
+  });
+}
+
+async function addGatewayStream(camera) {
+  const path =
+    `/api/streams?name=${encodeURIComponent(camera.streamName)}` +
+    `&src=${encodeURIComponent(camera.rtspUrl)}`;
+  const response = await requestGateway({ method: "PUT", path });
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    throw new Error(`Gateway stream eklenemedi: HTTP ${response.statusCode}`);
+  }
+}
+
+async function createCamera(body) {
+  const validation = validateCameraInput(body);
+  if (validation.error) return { statusCode: 400, payload: { ok: false, error: validation.error } };
+
+  const camera = validation.camera;
+  await addGatewayStream(camera);
+  cameraCatalogEntries = [...cameraCatalogEntries, camera];
+  saveCameraCatalog();
+  return {
+    statusCode: 201,
+    payload: {
+      ok: true,
+      camera: publicCamera(camera),
+    },
+  };
+}
+
+async function syncStoredGatewayStreams() {
+  for (const camera of cameraCatalogEntries) {
+    if (!camera.rtspUrl) continue;
+    try {
+      await addGatewayStream(camera);
+      logEvent("camera-sync", { stream: camera.streamName });
+    } catch {
+      logEvent("camera-sync-failed", { stream: camera.streamName });
+    }
+  }
 }
 
 function extractBearerToken(req) {
@@ -226,6 +433,23 @@ function extractBearerToken(req) {
   }
 
   return "";
+}
+
+function extractBasicCredentials(req) {
+  const authHeader = req.headers.authorization;
+  if (typeof authHeader !== "string" || !authHeader.startsWith("Basic ")) return null;
+
+  try {
+    const decoded = Buffer.from(authHeader.slice("Basic ".length), "base64").toString("utf8");
+    const separator = decoded.indexOf(":");
+    if (separator < 0) return null;
+    return {
+      username: decoded.slice(0, separator),
+      password: decoded.slice(separator + 1),
+    };
+  } catch {
+    return null;
+  }
 }
 
 function tokensEqual(receivedToken, expectedToken) {
@@ -295,6 +519,18 @@ function authorizationExpiry(req, _url, { allowPlayerSession = false } = {}) {
 
 function isAuthorized(req, url, options) {
   return Boolean(authorizationExpiry(req, url, options));
+}
+
+function isAdminAuthorized(req, url) {
+  if (isAuthorized(req, url)) return true;
+
+  const credentials = extractBasicCredentials(req);
+  return credentials ? validLogin(credentials.username, credentials.password) : false;
+}
+
+function requestBasicAuth(res) {
+  res.setHeader("WWW-Authenticate", 'Basic realm="Multitek Gateway"');
+  writeJson(res, 401, { ok: false, error: "Unauthorized" });
 }
 
 function readJsonBody(req, limit = 8 * 1024) {
@@ -542,39 +778,161 @@ function playerHtml(streamName, iceMode = "auto") {
   };
 }
 
-function gatewayStatus(streamName, res) {
-  const headers =
-    GO2RTC_API_USERNAME && GO2RTC_API_PASSWORD
-      ? {
-          Authorization: `Basic ${Buffer.from(
-            `${GO2RTC_API_USERNAME}:${GO2RTC_API_PASSWORD}`,
-            "utf8",
-          ).toString("base64")}`,
-        }
-      : {};
+function adminHtml() {
+  const nonce = crypto.randomBytes(18).toString("base64");
+  return {
+    nonce,
+    html: `<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Gateway Kamera Paneli</title>
+  <style nonce="${nonce}">
+    :root{color-scheme:light;--bg:#f5f7fa;--panel:#fff;--text:#172033;--muted:#627086;--border:#d9e0ea;--accent:#1167b1;--danger:#b42318;--ok:#087443}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    header{border-bottom:1px solid var(--border);background:#fff}main,header>div{width:min(1040px,calc(100% - 32px));margin:0 auto}
+    header>div{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 0}h1{font-size:22px;margin:0}p{margin:4px 0 0;color:var(--muted)}
+    main{display:grid;grid-template-columns:minmax(280px,380px) 1fr;gap:18px;padding:22px 0 40px}
+    section{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:18px}h2{font-size:16px;margin:0 0 14px}
+    label{display:grid;gap:6px;margin:0 0 12px;font-size:13px;font-weight:650}input{width:100%;height:40px;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font:inherit}
+    input:focus{outline:2px solid rgba(17,103,177,.22);border-color:var(--accent)}button{height:40px;border:0;border-radius:6px;background:var(--accent);color:#fff;font-weight:700;padding:0 14px;cursor:pointer}
+    button:disabled{opacity:.55;cursor:wait}.hint{font-size:12px;color:var(--muted)}.status{min-height:20px;margin-top:12px;font-size:13px}.status.error{color:var(--danger)}.status.ok{color:var(--ok)}
+    table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--border);vertical-align:top}th{font-size:12px;color:var(--muted);font-weight:700}
+    code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}.empty{color:var(--muted);padding:18px 8px}
+    @media (max-width:760px){main{grid-template-columns:1fr}header>div{align-items:flex-start;flex-direction:column}table{display:block;overflow-x:auto;white-space:nowrap}}
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <div>
+        <h1>Gateway Kamera Paneli</h1>
+        <p>Yeni kamerayı go2rtc'ye ekler ve mobil katalogda görünür hale getirir.</p>
+      </div>
+      <button id="refresh" type="button">Yenile</button>
+    </div>
+  </header>
+  <main>
+    <section>
+      <h2>Yeni kamera</h2>
+      <form id="camera-form">
+        <label>Kamera adı<input name="name" required autocomplete="off" placeholder="Depo Kamera"></label>
+        <label>Konum<input name="location" autocomplete="off" placeholder="Depo giriş"></label>
+        <label>Stream adı<input name="streamName" required autocomplete="off" pattern="[A-Za-z0-9_-]{2,64}" placeholder="depo_kamera"></label>
+        <label>RTSP adresi<input name="rtspUrl" required autocomplete="off" placeholder="rtsp://user:pass@192.168.1.20:554/live"></label>
+        <div class="hint">RTSP bilgisi sadece server katalog dosyasında tutulur; mobil uygulamaya dönmez.</div>
+        <button id="submit" type="submit">Kamerayı ekle</button>
+        <div id="status" class="status"></div>
+      </form>
+    </section>
+    <section>
+      <h2>Kamera kataloğu</h2>
+      <div id="camera-list" class="empty">Yükleniyor...</div>
+    </section>
+  </main>
+  <script nonce="${nonce}">
+    const form = document.getElementById("camera-form");
+    const status = document.getElementById("status");
+    const submit = document.getElementById("submit");
+    const list = document.getElementById("camera-list");
+    const refresh = document.getElementById("refresh");
 
+    function setStatus(message, kind) {
+      status.textContent = message;
+      status.className = "status" + (kind ? " " + kind : "");
+    }
+
+    function render(cameras) {
+      if (!cameras.length) {
+        list.className = "empty";
+        list.textContent = "Kamera bulunamadı.";
+        return;
+      }
+      list.className = "";
+      list.innerHTML = "<table><thead><tr><th>Ad</th><th>Konum</th><th>Stream</th></tr></thead><tbody>" +
+        cameras.map((camera) => "<tr><td>" + escapeHtml(camera.name) + "</td><td>" +
+          escapeHtml(camera.location || "-") + "</td><td><code>" +
+          escapeHtml(camera.streamName) + "</code></td></tr>").join("") +
+        "</tbody></table>";
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      }[char]));
+    }
+
+    async function loadCameras() {
+      const response = await fetch("/cameras", { cache: "no-store" });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "Katalog okunamadı.");
+      render(payload.cameras || []);
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      submit.disabled = true;
+      setStatus("Kamera ekleniyor...", "");
+      const body = Object.fromEntries(new FormData(form).entries());
+      try {
+        const response = await fetch("/admin/cameras", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || "Kamera eklenemedi.");
+        form.reset();
+        setStatus("Kamera eklendi. Mobil katalog yenilendiğinde listede görünecek.", "ok");
+        await loadCameras();
+      } catch (error) {
+        setStatus(error.message || "Kamera eklenemedi.", "error");
+      } finally {
+        submit.disabled = false;
+      }
+    });
+    refresh.addEventListener("click", () => loadCameras().catch((error) => setStatus(error.message, "error")));
+    loadCameras().catch((error) => setStatus(error.message, "error"));
+  </script>
+</body>
+</html>`,
+  };
+}
+
+function gatewayStatus(streamName, res) {
+  let completed = false;
+  const respond = (statusCode, payload) => {
+    if (completed || res.headersSent) return;
+    completed = true;
+    writeJson(res, statusCode, payload);
+  };
   const request = http.request(
     {
       host: GATEWAY_HOST,
       port: GATEWAY_API_PORT,
       path: "/api/streams",
       method: "GET",
-      headers,
-      timeout: 5000,
+      headers: gatewayAuthHeaders(),
+      timeout: GATEWAY_REQUEST_TIMEOUT_MS,
     },
     (gatewayResponse) => {
       const chunks = [];
       gatewayResponse.on("data", (chunk) => chunks.push(chunk));
       gatewayResponse.on("end", () => {
         if (gatewayResponse.statusCode !== 200) {
-          writeJson(res, 502, { ok: false, error: "Gateway unavailable" });
+          respond(502, { ok: false, error: "Gateway unavailable" });
           return;
         }
 
         try {
           const payload = JSON.parse(Buffer.concat(chunks).toString("utf8"));
           const stream = payload[streamName];
-          writeJson(res, 200, {
+          respond(200, {
             [streamName]: {
               producers: Array.isArray(stream?.producers)
                 ? stream.producers.map(() => ({ active: true }))
@@ -585,17 +943,18 @@ function gatewayStatus(streamName, res) {
             },
           });
         } catch {
-          writeJson(res, 502, { ok: false, error: "Invalid gateway response" });
+          respond(502, { ok: false, error: "Invalid gateway response" });
         }
       });
     },
   );
 
-  request.on("timeout", () => request.destroy(new Error("Gateway timeout")));
+  request.on("timeout", () => {
+    respond(502, { ok: false, error: "Gateway unavailable" });
+    request.destroy();
+  });
   request.on("error", () => {
-    if (!res.headersSent) {
-      writeJson(res, 502, { ok: false, error: "Gateway unavailable" });
-    }
+    respond(502, { ok: false, error: "Gateway unavailable" });
   });
   request.end();
 }
@@ -723,21 +1082,19 @@ function ensureMediaBridge(client) {
     return;
   }
 
-  const headers =
-    GO2RTC_API_USERNAME && GO2RTC_API_PASSWORD
-      ? {
-          Authorization: `Basic ${Buffer.from(
-            `${GO2RTC_API_USERNAME}:${GO2RTC_API_PASSWORD}`,
-            "utf8",
-          ).toString("base64")}`,
-        }
-      : undefined;
+  const headers = gatewayAuthHeaders();
 
-  const mediaSocket = new WebSocket(gatewayWebSocketUrl(client.room), { headers });
+  const mediaSocket = new WebSocket(gatewayWebSocketUrl(client.room), {
+    headers: Object.keys(headers).length > 0 ? headers : undefined,
+  });
   client.mediaSocket = mediaSocket;
 
   mediaSocket.on("open", () => {
     if (client.mediaSocket !== mediaSocket) return;
+    logEvent("media-bridge-open", {
+      room: client.room,
+      clientId: client.id.slice(0, 8),
+    });
     for (const queued of client.mediaQueue.splice(0)) {
       mediaSocket.send(JSON.stringify(queued));
     }
@@ -746,13 +1103,28 @@ function ensureMediaBridge(client) {
   mediaSocket.on("message", (raw) => {
     if (client.mediaSocket !== mediaSocket) return;
     try {
-      send(client.ws, JSON.parse(raw.toString()));
+      const message = JSON.parse(raw.toString());
+      const errorMessage =
+        message.type === "error"
+          ? String(message.message ?? message.value ?? "error").replace(/\s+/g, "_").slice(0, 120)
+          : "";
+      logEvent("media-bridge-message", {
+        room: client.room,
+        clientId: client.id.slice(0, 8),
+        type: String(message.type ?? "unknown"),
+        ...(errorMessage ? { error: errorMessage } : {}),
+      });
+      send(client.ws, message);
     } catch {
       send(client.ws, { type: "error", message: "Gateway gecersiz mesaj gonderdi." });
     }
   });
 
   mediaSocket.on("error", () => {
+    logEvent("media-bridge-error", {
+      room: client.room,
+      clientId: client.id.slice(0, 8),
+    });
     send(client.ws, {
       type: "error",
       message: "go2rtc media gateway baglantisi kurulamadi.",
@@ -760,6 +1132,10 @@ function ensureMediaBridge(client) {
   });
 
   mediaSocket.on("close", () => {
+    logEvent("media-bridge-close", {
+      room: client.room,
+      clientId: client.id.slice(0, 8),
+    });
     if (client.mediaSocket === mediaSocket) {
       client.mediaSocket = null;
       client.mediaQueue = [];
@@ -804,8 +1180,57 @@ const requestHandler = async (req, res) => {
         "Saglik kontrolu icin /health adresini kullanabilirsin.",
         "Aktif odalari gormek icin /rooms adresini kullanabilirsin.",
         "Kamera katalogu icin /cameras adresini kullanabilirsin.",
+        "Gateway kamera paneli icin /admin adresini kullanabilirsin.",
       ].join("\n"),
     );
+    return;
+  }
+
+  if (url.pathname === "/admin") {
+    if (!isAdminAuthorized(req, url)) {
+      logEvent("unauthorized-admin", { ip: maskedIp, path: url.pathname });
+      requestBasicAuth(res);
+      return;
+    }
+
+    const page = adminHtml();
+    res.setHeader(
+      "Content-Security-Policy",
+      `default-src 'none'; script-src 'nonce-${page.nonce}'; style-src 'nonce-${page.nonce}'; ` +
+        "connect-src 'self'; base-uri 'none'; form-action 'self'",
+    );
+    res.setHeader("Cache-Control", "no-store");
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(page.html);
+    return;
+  }
+
+  if (url.pathname === "/admin/cameras") {
+    if (!isAdminAuthorized(req, url)) {
+      logEvent("unauthorized-admin", { ip: maskedIp, path: url.pathname });
+      requestBasicAuth(res);
+      return;
+    }
+    if (req.method !== "POST") {
+      writeJson(res, 405, { ok: false, error: "Method not allowed" });
+      return;
+    }
+
+    let body;
+    try {
+      body = await readJsonBody(req, 16 * 1024);
+    } catch {
+      writeJson(res, 400, { ok: false, error: "Invalid request" });
+      return;
+    }
+
+    try {
+      const result = await createCamera(body);
+      writeJson(res, result.statusCode, result.payload);
+    } catch (error) {
+      logEvent("camera-add-failed", { ip: maskedIp, error: maskValue(error.message) });
+      writeJson(res, 502, { ok: false, error: "Gateway'e kamera eklenemedi." });
+    }
     return;
   }
 
@@ -865,7 +1290,7 @@ const requestHandler = async (req, res) => {
   }
 
   if (url.pathname === "/cameras") {
-    if (!isAuthorized(req, url)) {
+    if (!isAuthorized(req, url) && !isAdminAuthorized(req, url)) {
       logEvent("unauthorized-http", { ip: maskedIp, path: url.pathname });
       writeJson(res, 401, {
         ok: false,
@@ -889,7 +1314,7 @@ const requestHandler = async (req, res) => {
     }
 
     const streamName = String(url.searchParams.get("src") ?? "").trim();
-    if (streamName !== CAMERA_STREAM_NAME) {
+    if (!findCameraByStreamName(streamName)) {
       writeJson(res, 404, { ok: false, error: "Camera not found" });
       return;
     }
@@ -904,6 +1329,7 @@ const requestHandler = async (req, res) => {
       createPlayerSession(req, res);
     }
     const player = playerHtml(streamName, iceMode);
+    logEvent("player-open", { ip: maskedIp, stream: streamName, iceMode });
     res.setHeader(
       "Content-Security-Policy",
       `default-src 'none'; script-src 'nonce-${player.nonce}'; style-src 'nonce-${player.nonce}'; ` +
@@ -923,7 +1349,7 @@ const requestHandler = async (req, res) => {
     }
 
     const streamName = String(url.searchParams.get("src") ?? "").trim();
-    if (streamName !== CAMERA_STREAM_NAME) {
+    if (!findCameraByStreamName(streamName)) {
       writeJson(res, 404, { ok: false, error: "Camera not found" });
       return;
     }
@@ -965,6 +1391,7 @@ const server =
 server.listen(PORT, () => {
   const protocol = SIGNALING_TLS_CERT_PATH && SIGNALING_TLS_KEY_PATH ? "https" : "http";
   console.log(`Signaling server ${protocol}://localhost:${PORT} adresinde calisiyor.`);
+  syncStoredGatewayStreams();
 });
 
 // WebSocket, WebRTC tarafinin teklif/cvp/ICE mesajlarini tasimasi icin kullanilir.
@@ -1037,7 +1464,7 @@ wss.on("connection", (ws, req) => {
         });
         return;
       }
-      if (roomName !== CAMERA_STREAM_NAME) {
+      if (!findCameraByStreamName(roomName)) {
         send(ws, {
           type: "error",
           message: "Bu kamera odasina erisim izni yok.",
@@ -1069,6 +1496,7 @@ wss.on("connection", (ws, req) => {
         room: roomName,
         clientId: clientId.slice(0, 8),
         role: client.role,
+        name: client.name.replace(/\s+/g, "_"),
       });
 
       if (joiningNewRoom) {
@@ -1113,6 +1541,11 @@ wss.on("connection", (ws, req) => {
     }
 
     if (client.role === "viewer" && message.type.startsWith("webrtc/")) {
+      logEvent("media-message", {
+        room: client.room,
+        clientId: clientId.slice(0, 8),
+        type: message.type,
+      });
       ensureMediaBridge(client);
       forwardToGateway(client, {
         type: message.type,

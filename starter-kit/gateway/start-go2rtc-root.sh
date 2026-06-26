@@ -4,6 +4,7 @@ WORKDIR=/data/local/tmp/staj-gateway
 START_SCRIPT="$WORKDIR/start-go2rtc-device.sh"
 PID_FILE="$WORKDIR/go2rtc.pid"
 LOG_FILE="$WORKDIR/autostart.log"
+GATEWAY_ALIAS="${GATEWAY_ALIAS:-10.1.1.3}"
 
 log() {
   echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >> "$LOG_FILE"
@@ -18,6 +19,10 @@ is_running() {
 
 mkdir -p "$WORKDIR"
 cd "$WORKDIR" || exit 1
+
+if ! ip -4 addr show eth0 2>/dev/null | grep -q "inet $GATEWAY_ALIAS/"; then
+  ip addr add "$GATEWAY_ALIAS/8" dev eth0 2>/dev/null || true
+fi
 
 if is_running; then
   log "go2rtc already running pid=$(cat "$PID_FILE" 2>/dev/null)"

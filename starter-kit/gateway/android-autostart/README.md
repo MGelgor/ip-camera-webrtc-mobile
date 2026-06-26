@@ -29,6 +29,24 @@ su -c /data/local/tmp/staj-gateway/start-go2rtc-device.sh
 Bu komut basarili olursa `go2rtc` baslar. Watchdog service `go2rtc` process'i olurse
 yeniden baslatmaya calisir.
 
+## Kamera Ekleme Ekrani
+
+APK ana ekrani artik kamera ekleme formu da icerir:
+
+- Kamera adi
+- Konum
+- Stream adi
+- RTSP adresi
+
+APK `POST /admin/cameras` endpoint'ine kayit gonderir. Bu yol, signaling server
+katalogunu guncelledigi icin kamera mobil uygulamadaki `/cameras` listesine de eklenir.
+
+Signaling URL/kullanici/parola formda istenmez. Build sirasinda `.env` uzerinden
+`SIGNALING_HOST`, `SIGNALING_PORT`, `SIGNALING_AUTH_USERNAME` ve
+`SIGNALING_AUTH_PASSWORD` degerleri APK build config'ine yazilir.
+
+Kamera RTSP adresi mobil uygulamaya gonderilmez.
+
 ## Multitek Cihaz Notu
 
 2026-06-18 saha testinde cihazda `su` su izinlerle goruldu:

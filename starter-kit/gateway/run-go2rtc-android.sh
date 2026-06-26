@@ -17,6 +17,7 @@ CONFIG_FILE="${SCRIPT_DIR}/go2rtc.yaml"
 ANDROID_BIN="${GO2RTC_ANDROID_BIN:-${SCRIPT_DIR}/go2rtc_linux_arm64}"
 DEVICE_SERIAL="${ANDROID_GATEWAY_SERIAL:-10.1.1.3:5555}"
 DEVICE_HOST="${DEVICE_SERIAL%%:*}"
+DEVICE_ALIAS="${ANDROID_GATEWAY_ALIAS:-${GATEWAY_HOST:-10.1.1.3}}"
 DEVICE_WORKDIR="${ANDROID_GATEWAY_WORKDIR:-/data/local/tmp/staj-gateway}"
 DEVICE_BINARY="${DEVICE_WORKDIR}/go2rtc"
 DEVICE_CONFIG="${DEVICE_WORKDIR}/go2rtc.yaml"
@@ -120,6 +121,9 @@ rendered_start_script="$(mktemp)"
 cat > "${rendered_start_script}" <<EOF
 #!/system/bin/sh
 cd $(shell_quote "${DEVICE_WORKDIR}") || exit 1
+if ! ip -4 addr show eth0 2>/dev/null | grep -q $(shell_quote "inet ${DEVICE_ALIAS}/"); then
+  ip addr add $(shell_quote "${DEVICE_ALIAS}/8") dev eth0 2>/dev/null || true
+fi
 export CAMERA_USER=$(shell_quote "${CAMERA_USER}")
 export CAMERA_PASSWORD=$(shell_quote "${CAMERA_PASSWORD}")
 export CAMERA_IP=$(shell_quote "${CAMERA_IP}")
