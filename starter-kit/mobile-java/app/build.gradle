@@ -1,0 +1,49 @@
+plugins {
+    id "com.android.application"
+}
+
+def env = { name -> System.getenv(name) ?: "" }
+def escaped = { value -> value.replace("\\", "\\\\").replace("\"", "\\\"") }
+def signalingUrl = env("MOBILE_SIGNALING_URL")
+if (!signalingUrl) signalingUrl = env("EXPO_PUBLIC_SIGNALING_URL")
+if (!signalingUrl) {
+    def host = env("SIGNALING_PUBLIC_HOST") ?: env("SIGNALING_HOST")
+    def port = env("SIGNALING_PUBLIC_PORT") ?: env("SIGNALING_PORT") ?: "3000"
+    if (host) signalingUrl = "ws://${host}:${port}/ws"
+}
+if (!signalingUrl) signalingUrl = "ws://10.0.2.2:3000/ws"
+
+android {
+    namespace "com.multitek.mobileviewer"
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.multitek.mobileviewer"
+        minSdk 23
+        targetSdk 34
+        versionCode 1
+        versionName "1.0.0"
+
+        buildConfigField "String", "SIGNALING_URL", "\"${escaped(signalingUrl)}\""
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation "com.squareup.okhttp3:okhttp:4.12.0"
+}
