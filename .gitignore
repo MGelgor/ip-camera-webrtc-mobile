@@ -21,6 +21,7 @@ starter-kit/mobile/android/
 starter-kit/mobile/ios/
 starter-kit/mobile/.kotlin/
 starter-kit/gateway/android-autostart/.gradle/
+starter-kit/gateway/ipcam-ssh-tunnel-android-*
 
 # logs / runtime
 *.log

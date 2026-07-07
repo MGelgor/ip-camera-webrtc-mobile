@@ -2,6 +2,7 @@
 
 WORKDIR=/data/local/tmp/staj-gateway
 START_SCRIPT="$WORKDIR/start-go2rtc-device.sh"
+TUNNEL_SCRIPT="$WORKDIR/start-azure-tunnel-root.sh"
 PID_FILE="$WORKDIR/go2rtc.pid"
 LOG_FILE="$WORKDIR/autostart.log"
 GATEWAY_ALIAS="${GATEWAY_ALIAS:-10.1.1.3}"
@@ -26,6 +27,9 @@ fi
 
 if is_running; then
   log "go2rtc already running pid=$(cat "$PID_FILE" 2>/dev/null)"
+  if [ -x "$TUNNEL_SCRIPT" ]; then
+    "$TUNNEL_SCRIPT" || log "azure tunnel start failed rc=$?"
+  fi
   exit 0
 fi
 
@@ -36,6 +40,9 @@ sleep 2
 
 if is_running; then
   log "go2rtc started pid=$(cat "$PID_FILE" 2>/dev/null)"
+  if [ -x "$TUNNEL_SCRIPT" ]; then
+    "$TUNNEL_SCRIPT" || log "azure tunnel start failed rc=$?"
+  fi
   exit 0
 fi
 
