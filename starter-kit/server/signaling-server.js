@@ -624,7 +624,7 @@ function playerHtml(streamName, iceMode = "auto") {
     html,body{width:100%;height:100%;margin:0;background:#05070d;overflow:hidden}
     body{font-family:sans-serif;color:#fff}
     video{width:100%;height:100%;object-fit:contain;background:#05070d}
-    #state{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;background:#05070d}
+    #state{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;background:#05070d;white-space:pre-line}
     #state[hidden]{display:none}
   </style>
 </head>
@@ -639,9 +639,17 @@ function playerHtml(streamName, iceMode = "auto") {
       const protocol = location.protocol === "https:" ? "wss:" : "ws:";
       const socket = new WebSocket(protocol + "//" + location.host + "/ws");
       let peer = null;
+      let trackAttached = false;
       const pendingCandidates = [];
       let remoteDescriptionReady = false;
       let routeCheckTimer = null;
+      let playbackCheckTimer = null;
+
+      video.autoplay = true;
+      video.muted = true;
+      video.defaultMuted = true;
+      video.playsInline = true;
+      video.controls = false;
 
       function postToApp(payload) {
         if (window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === "function") {
@@ -696,11 +704,62 @@ function playerHtml(streamName, iceMode = "auto") {
         routeCheckTimer = setInterval(check, 1000);
       }
 
+      function startPlaybackReporter() {
+        if (playbackCheckTimer) clearInterval(playbackCheckTimer);
+        playbackCheckTimer = setInterval(async () => {
+          if (!peer) return;
+          const stats = await peer.getStats().catch(() => null);
+          let inbound = null;
+          if (stats) {
+            stats.forEach((report) => {
+              if (report.type === "inbound-rtp" && report.kind === "video") inbound = report;
+            });
+          }
+          const bytes = inbound?.bytesReceived ?? 0;
+          const packets = inbound?.packetsReceived ?? 0;
+          const frames = inbound?.framesDecoded ?? 0;
+          state.hidden = false;
+          state.textContent =
+            "Goruntu baslatiliyor..." +
+            "\\nICE: " + peer.iceConnectionState + " / " + peer.connectionState +
+            "\\nVideo: ready=" + video.readyState + " bytes=" + bytes +
+            " packets=" + packets + " frames=" + frames;
+        }, 1000);
+      }
+
       function fail(message) {
         state.hidden = false;
         state.textContent = message;
+        if (playbackCheckTimer) clearInterval(playbackCheckTimer);
         if (peer) peer.close();
       }
+
+      async function attemptPlay() {
+        if (!video.srcObject) return;
+        try {
+          await video.play();
+          state.hidden = true;
+        } catch {
+          state.hidden = false;
+          state.textContent = "Yayini baslatmak icin dokunun.";
+        }
+      }
+
+      state.addEventListener("click", attemptPlay);
+      video.addEventListener("click", attemptPlay);
+      video.addEventListener("touchend", attemptPlay);
+      video.addEventListener("loadedmetadata", attemptPlay);
+      video.addEventListener("canplay", attemptPlay);
+      video.addEventListener("playing", () => {
+        if (playbackCheckTimer) clearInterval(playbackCheckTimer);
+        state.hidden = true;
+      });
+      video.addEventListener("pause", () => {
+        if (trackAttached) {
+          state.hidden = false;
+          state.textContent = "Yayini baslatmak icin dokunun.";
+        }
+      });
 
       async function startPeer() {
         peer = new RTCPeerConnection({
@@ -709,11 +768,13 @@ function playerHtml(streamName, iceMode = "auto") {
           iceTransportPolicy: config.iceTransportPolicy,
         });
         peer.addTransceiver("video", { direction: "recvonly" });
-        peer.addTransceiver("audio", { direction: "recvonly" });
         peer.ontrack = (event) => {
+          trackAttached = true;
           video.srcObject = event.streams[0] || new MediaStream([event.track]);
-          state.hidden = true;
-          video.play().catch(() => {});
+          state.hidden = false;
+          state.textContent = "Goruntu baslatiliyor...";
+          attemptPlay();
+          startPlaybackReporter();
           startRouteReporter();
         };
         peer.onicecandidate = (event) => {

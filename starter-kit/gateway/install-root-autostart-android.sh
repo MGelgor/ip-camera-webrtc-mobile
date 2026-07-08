@@ -7,7 +7,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEVICE_SERIAL="${ANDROID_GATEWAY_SERIAL:-10.1.1.3:5555}"
 DEVICE_HOST="${DEVICE_SERIAL%%:*}"
-DEVICE_WORKDIR="${ANDROID_GATEWAY_WORKDIR:-/data/local/tmp/staj-gateway}"
+DEVICE_WORKDIR="${ANDROID_GATEWAY_WORKDIR:-/data/staj-gateway}"
 DEVICE_ROOT_START="${DEVICE_WORKDIR}/start-go2rtc-root.sh"
 DEVICE_BOOT_LOG="${DEVICE_WORKDIR}/boot-hook.log"
 DEVICE_VENDOR_START="/system/bin/starapp.sh"
@@ -70,9 +70,9 @@ cat >> ${DEVICE_VENDOR_START} <<'EOF'
 (
   echo \"\$(date '+%Y-%m-%d %H:%M:%S') boot hook starting\"
   sleep 20
-  /data/local/tmp/staj-gateway/start-go2rtc-root.sh
+  ${DEVICE_WORKDIR}/start-go2rtc-root.sh
   echo \"\$(date '+%Y-%m-%d %H:%M:%S') boot hook finished rc=\$?\"
-) > /data/local/tmp/staj-gateway/boot-hook.log 2>&1 &
+) > ${DEVICE_WORKDIR}/boot-hook.log 2>&1 &
 # staj-gateway-autostart end
 EOF
 chmod 755 ${DEVICE_VENDOR_START}"

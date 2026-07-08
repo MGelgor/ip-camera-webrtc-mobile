@@ -1,6 +1,6 @@
 #!/system/bin/sh
 
-WORKDIR=/data/local/tmp/staj-gateway
+WORKDIR="${WORKDIR:-/data/staj-gateway}"
 BIN="$WORKDIR/ipcam-ssh-tunnel"
 KEY_FILE="$WORKDIR/azure_tunnel_ed25519"
 PID_FILE="$WORKDIR/azure-tunnel.pid"

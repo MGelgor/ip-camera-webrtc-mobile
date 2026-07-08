@@ -1,6 +1,6 @@
 #!/system/bin/sh
 
-WORKDIR=/data/local/tmp/staj-gateway
+WORKDIR="${WORKDIR:-/data/staj-gateway}"
 START_SCRIPT="$WORKDIR/start-go2rtc-device.sh"
 TUNNEL_SCRIPT="$WORKDIR/start-azure-tunnel-root.sh"
 PID_FILE="$WORKDIR/go2rtc.pid"
