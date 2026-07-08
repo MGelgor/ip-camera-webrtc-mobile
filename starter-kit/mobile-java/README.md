@@ -8,6 +8,7 @@ Eski TypeScript React Native uygulamasi silinmedi; iki uygulama yan yana durur.
 - Kullanici adi/parola ile `POST /auth/login`
 - Kisa omurlu access tokenin yalnizca bellek icinde tutulmasi
 - `GET /cameras` kamera katalogu
+- Acik oturumda uygulama one gelince veya Genel ekrandaki yenile butonuyla katalog tazeleme
 - Secili kamerayi canli ekrana aktarma
 - go2rtc/signaling player sayfasini Android `WebView` icinde acma
 - `GET /gateway/status` ile producer kontrolu

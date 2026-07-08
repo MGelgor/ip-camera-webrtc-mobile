@@ -117,7 +117,10 @@ final class ApiClient {
     }
 
     void fetchCameras(String authToken, Result<List<CameraConfig>> result) {
-        Request.Builder builder = new Request.Builder().url(httpBase() + "/cameras");
+        Request.Builder builder = new Request.Builder()
+                .url(httpBase() + "/cameras")
+                .header("Cache-Control", "no-cache")
+                .header("Pragma", "no-cache");
         if (authToken != null && !authToken.isEmpty()) {
             builder.header("Authorization", "Bearer " + authToken);
         }

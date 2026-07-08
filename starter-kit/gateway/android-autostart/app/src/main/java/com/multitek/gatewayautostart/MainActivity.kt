@@ -31,7 +31,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     val endpointInfo = TextView(this).apply {
-      text = "Signaling: ${BuildConfig.PROVISIONING_SIGNALING_URL} / ${BuildConfig.PROVISIONING_LOCAL_SIGNALING_URL}"
+      text = "Signaling: ${BuildConfig.PROVISIONING_SIGNALING_URL} / ${BuildConfig.PROVISIONING_FALLBACK_SIGNALING_URL} / ${BuildConfig.PROVISIONING_LOCAL_SIGNALING_URL}"
       textSize = 12f
     }
 

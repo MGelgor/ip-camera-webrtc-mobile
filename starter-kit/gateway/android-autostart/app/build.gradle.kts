@@ -11,12 +11,7 @@ android {
   fun escaped(value: String): String = value
     .replace("\\", "\\\\")
     .replace("\"", "\\\"")
-  val provisioningUrl = env("GATEWAY_PROVISIONING_SIGNALING_URL").ifBlank {
-    val host = env("SIGNALING_HOST")
-    val port = env("SIGNALING_PORT").ifBlank { "3000" }
-    if (host.isNotBlank()) "http://$host:$port" else ""
-  }
-  val fallbackProvisioningUrl = env("GATEWAY_PROVISIONING_FALLBACK_SIGNALING_URL").ifBlank {
+  val publicProvisioningUrl = run {
     val host = env("SIGNALING_PUBLIC_HOST")
     val port = env("SIGNALING_PUBLIC_PORT").ifBlank { "13000" }
     if (host.isNotBlank()) "http://$host:$port" else ""
@@ -25,6 +20,12 @@ android {
     val host = env("SIGNALING_HOST")
     val port = env("SIGNALING_PORT").ifBlank { "3000" }
     if (host.isNotBlank()) "http://$host:$port" else ""
+  }
+  val provisioningUrl = env("GATEWAY_PROVISIONING_SIGNALING_URL").ifBlank {
+    publicProvisioningUrl.ifBlank { localProvisioningUrl }
+  }
+  val fallbackProvisioningUrl = env("GATEWAY_PROVISIONING_FALLBACK_SIGNALING_URL").ifBlank {
+    if (provisioningUrl != publicProvisioningUrl) publicProvisioningUrl else localProvisioningUrl
   }
 
   defaultConfig {

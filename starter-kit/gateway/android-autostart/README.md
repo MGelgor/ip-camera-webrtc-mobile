@@ -42,8 +42,15 @@ APK `POST /admin/cameras` endpoint'ine kayit gonderir. Bu yol, signaling server
 katalogunu guncelledigi icin kamera mobil uygulamadaki `/cameras` listesine de eklenir.
 
 Signaling URL/kullanici/parola formda istenmez. Build sirasinda `.env` uzerinden
-`SIGNALING_HOST`, `SIGNALING_PORT`, `SIGNALING_AUTH_USERNAME` ve
-`SIGNALING_AUTH_PASSWORD` degerleri APK build config'ine yazilir.
+`SIGNALING_AUTH_USERNAME` ve `SIGNALING_AUTH_PASSWORD` degerleri APK build config'ine
+yazilir. URL sirasi:
+
+1. `GATEWAY_PROVISIONING_SIGNALING_URL`
+2. `SIGNALING_PUBLIC_HOST` / `SIGNALING_PUBLIC_PORT`
+3. `SIGNALING_HOST` / `SIGNALING_PORT`
+
+Bu siralama, Azure/public signaling adresi ile mobil uygulamanin okudugu katalogun ayni
+sunucuda kalmasi icindir. Kayit sonrasi ekranda basarili kaydin yapildigi URL gorunur.
 
 Kamera RTSP adresi mobil uygulamaya gonderilmez.
 

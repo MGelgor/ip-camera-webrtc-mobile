@@ -37,8 +37,8 @@ object CameraProvisioner {
     }
 
     return try {
-      registerWithSignaling(normalizedRequest)
-      CameraProvisioningResult(true, "Kamera kaydedildi.")
+      val registeredUrl = registerWithSignaling(normalizedRequest)
+      CameraProvisioningResult(true, "Kamera kaydedildi: ${registeredUrl.trimEnd('/')}")
     } catch (error: Exception) {
       CameraProvisioningResult(false, error.message ?: "Kamera kaydedilemedi.")
     }
@@ -98,7 +98,7 @@ object CameraProvisioner {
     return null
   }
 
-  private fun registerWithSignaling(request: CameraProvisioningRequest) {
+  private fun registerWithSignaling(request: CameraProvisioningRequest): String {
     val body = JSONObject()
       .put("name", request.name)
       .put("location", request.location)
@@ -113,7 +113,7 @@ object CameraProvisioner {
         if (attempt > 0) Thread.sleep(500)
         try {
           sendCameraRegistration(baseUrl, body)
-          return
+          return baseUrl
         } catch (error: Exception) {
           lastError = error
         }

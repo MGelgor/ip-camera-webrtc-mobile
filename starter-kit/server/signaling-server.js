@@ -1360,6 +1360,7 @@ const requestHandler = async (req, res) => {
       return;
     }
 
+    res.setHeader("Cache-Control", "no-store");
     writeJson(res, 200, {
       ok: true,
       cameras: cameraCatalog(),

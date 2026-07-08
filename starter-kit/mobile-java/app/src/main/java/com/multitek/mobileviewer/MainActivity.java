@@ -62,6 +62,8 @@ public final class MainActivity extends Activity {
     private String iceMode = "auto";
     private int gatewayFailureCount;
     private WebView liveWebView;
+    private TextView headerSubtitle;
+    private boolean cameraRefreshInFlight;
     private final Runnable expireSessionRunnable = this::logout;
     private final Runnable gatewayChecker = new Runnable() {
         @Override
@@ -103,6 +105,14 @@ public final class MainActivity extends Activity {
         if (signalingClient != null) signalingClient.disconnect();
         destroyLiveWebView();
         super.onDestroy();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (sessionToken != null && root != null) {
+            refreshCameraCatalog(false);
+        }
     }
 
     private void showLogin() {
@@ -214,8 +224,7 @@ public final class MainActivity extends Activity {
             @Override
             public void onSuccess(List<CameraConfig> value) {
                 runOnUiThread(() -> {
-                    cameras = value;
-                    selectedCamera = cameras.isEmpty() ? CameraConfig.fallback() : cameras.get(0);
+                    applyCameraCatalog(value, false);
                     connectSignaling();
                     showMain();
                 });
@@ -233,6 +242,60 @@ public final class MainActivity extends Activity {
                 });
             }
         });
+    }
+
+    private void refreshCameraCatalog(boolean showToast) {
+        if (cameraRefreshInFlight) return;
+        cameraRefreshInFlight = true;
+        apiClient.fetchCameras(sessionToken, new ApiClient.Result<List<CameraConfig>>() {
+            @Override
+            public void onSuccess(List<CameraConfig> value) {
+                runOnUiThread(() -> {
+                    cameraRefreshInFlight = false;
+                    String previousStream = selectedCamera.streamName;
+                    applyCameraCatalog(value, true);
+                    updateHeaderSubtitle();
+                    if (!previousStream.equals(selectedCamera.streamName)) {
+                        connectSignaling();
+                    }
+                    if (content != null && !"live".equals(activeView)) {
+                        renderActiveView();
+                    }
+                    if (showToast) {
+                        Toast.makeText(MainActivity.this, "Kamera listesi yenilendi.", Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> {
+                    cameraRefreshInFlight = false;
+                    if (showToast) {
+                        Toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+        });
+    }
+
+    private void applyCameraCatalog(List<CameraConfig> value, boolean preserveSelection) {
+        List<CameraConfig> next = value == null || value.isEmpty()
+                ? new ArrayList<>()
+                : new ArrayList<>(value);
+        if (next.isEmpty()) next.add(CameraConfig.fallback());
+
+        CameraConfig nextSelected = next.get(0);
+        if (preserveSelection) {
+            for (CameraConfig camera : next) {
+                if (camera.id.equals(selectedCamera.id) || camera.streamName.equals(selectedCamera.streamName)) {
+                    nextSelected = camera;
+                    break;
+                }
+            }
+        }
+        cameras = next;
+        selectedCamera = nextSelected;
     }
 
     private void showMain() {
@@ -261,9 +324,9 @@ public final class MainActivity extends Activity {
         LinearLayout text = column();
         text.setPadding(dp(12), 0, 0, 0);
         TextView title = title("Multitek Kamera", 21);
-        TextView subtitle = small(selectedCamera.name + " - " + selectedCamera.location);
+        headerSubtitle = small(selectedCamera.name + " - " + selectedCamera.location);
         text.addView(title);
-        text.addView(subtitle, topMargin(dp(3)));
+        text.addView(headerSubtitle, topMargin(dp(3)));
         header.addView(text, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
 
         Button logout = ghostButton("Cikis");
@@ -273,6 +336,7 @@ public final class MainActivity extends Activity {
     }
 
     private void renderTabs() {
+        tabButtons.clear();
         HorizontalScrollView scroller = new HorizontalScrollView(this);
         scroller.setHorizontalScrollBarEnabled(false);
         LinearLayout tabs = row();
@@ -329,6 +393,7 @@ public final class MainActivity extends Activity {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 selectedCamera = cameras.get(position);
+                updateHeaderSubtitle();
                 connectSignaling();
             }
 
@@ -340,12 +405,19 @@ public final class MainActivity extends Activity {
         section.addView(infoRow("Secili kamera", selectedCamera.name), topMargin(dp(16)));
         section.addView(infoRow("Konum", selectedCamera.location), topMargin(dp(8)));
         section.addView(infoRow("Stream", selectedCamera.streamName), topMargin(dp(8)));
+        LinearLayout actions = row();
         Button live = primaryButton("Canli ekrani ac");
         live.setOnClickListener(view -> {
             activeView = "live";
             renderActiveView();
         });
-        section.addView(live, topMargin(dp(18)));
+        Button refresh = ghostButton("Listeyi yenile");
+        refresh.setOnClickListener(view -> refreshCameraCatalog(true));
+        actions.addView(live, new LinearLayout.LayoutParams(0, dp(44), 1));
+        LinearLayout.LayoutParams refreshParams = new LinearLayout.LayoutParams(0, dp(44), 1);
+        refreshParams.leftMargin = dp(10);
+        actions.addView(refresh, refreshParams);
+        section.addView(actions, topMargin(dp(18)));
         content.addView(section);
     }
 
@@ -551,8 +623,15 @@ public final class MainActivity extends Activity {
         handler.removeCallbacks(gatewayChecker);
         sessionToken = null;
         sessionExpiresAtMs = 0;
+        cameraRefreshInFlight = false;
         if (signalingClient != null) signalingClient.disconnect();
         showLogin();
+    }
+
+    private void updateHeaderSubtitle() {
+        if (headerSubtitle != null) {
+            headerSubtitle.setText(selectedCamera.name + " - " + selectedCamera.location);
+        }
     }
 
     private void scheduleSessionExpiry() {
