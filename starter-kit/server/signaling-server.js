@@ -63,6 +63,7 @@ const loginRateLimits = new Map();
 const playerSessions = new Map();
 const accessSessions = new Map();
 let cameraCatalogEntries = loadCameraCatalog();
+let gatewayCatalogEntries = [];
 
 function assertConfiguration() {
   if (SIGNALING_AUTH_TOKEN.length < 32) {
@@ -207,6 +208,19 @@ function publicCamera(camera) {
   };
 }
 
+function gatewayDiscoveredCamera(streamName) {
+  return {
+    id: slugify(streamName.replaceAll("_", "-")) || streamName,
+    name: streamName
+      .replaceAll("_", " ")
+      .replaceAll("-", " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase()),
+    location: "Gateway",
+    streamName,
+    rtspUrl: "",
+  };
+}
+
 function takeRateLimit(store, key, windowMs, maxRequests) {
   const now = Date.now();
   const entry = store.get(key);
@@ -268,12 +282,21 @@ function enforceMapLimit(store) {
   }
 }
 
+function mergedCameraEntries() {
+  const byStream = new Map();
+  for (const camera of cameraCatalogEntries) byStream.set(camera.streamName, camera);
+  for (const camera of gatewayCatalogEntries) {
+    if (!byStream.has(camera.streamName)) byStream.set(camera.streamName, camera);
+  }
+  return Array.from(byStream.values());
+}
+
 function cameraCatalog() {
-  return cameraCatalogEntries.map(publicCamera);
+  return mergedCameraEntries().map(publicCamera);
 }
 
 function findCameraByStreamName(streamName) {
-  return cameraCatalogEntries.find((camera) => camera.streamName === streamName) ?? null;
+  return mergedCameraEntries().find((camera) => camera.streamName === streamName) ?? null;
 }
 
 function isValidStreamName(streamName) {
@@ -394,6 +417,34 @@ async function addGatewayStream(camera) {
   const response = await requestGateway({ method: "PUT", path });
   if (response.statusCode < 200 || response.statusCode >= 300) {
     throw new Error(`Gateway stream eklenemedi: HTTP ${response.statusCode}`);
+  }
+}
+
+function shouldExposeGatewayStream(streamName) {
+  return (
+    isValidStreamName(streamName) &&
+    !streamName.startsWith("tmp_") &&
+    !streamName.startsWith("tmp_codex_")
+  );
+}
+
+async function refreshGatewayCatalogEntries() {
+  const response = await requestGateway({ method: "GET", path: "/api/streams" });
+  if (response.statusCode !== 200) {
+    throw new Error(`Gateway stream listesi okunamadi: HTTP ${response.statusCode}`);
+  }
+
+  const payload = JSON.parse(response.body);
+  gatewayCatalogEntries = Object.keys(payload)
+    .filter(shouldExposeGatewayStream)
+    .map(gatewayDiscoveredCamera);
+}
+
+async function refreshGatewayCatalogEntriesQuietly() {
+  try {
+    await refreshGatewayCatalogEntries();
+  } catch (error) {
+    logEvent("gateway-catalog-sync-failed", { error: maskValue(error.message) });
   }
 }
 
@@ -1360,6 +1411,7 @@ const requestHandler = async (req, res) => {
       return;
     }
 
+    await refreshGatewayCatalogEntriesQuietly();
     res.setHeader("Cache-Control", "no-store");
     writeJson(res, 200, {
       ok: true,
@@ -1376,6 +1428,9 @@ const requestHandler = async (req, res) => {
     }
 
     const streamName = String(url.searchParams.get("src") ?? "").trim();
+    if (!findCameraByStreamName(streamName)) {
+      await refreshGatewayCatalogEntriesQuietly();
+    }
     if (!findCameraByStreamName(streamName)) {
       writeJson(res, 404, { ok: false, error: "Camera not found" });
       return;
@@ -1411,6 +1466,9 @@ const requestHandler = async (req, res) => {
     }
 
     const streamName = String(url.searchParams.get("src") ?? "").trim();
+    if (!findCameraByStreamName(streamName)) {
+      await refreshGatewayCatalogEntriesQuietly();
+    }
     if (!findCameraByStreamName(streamName)) {
       writeJson(res, 404, { ok: false, error: "Camera not found" });
       return;
@@ -1454,6 +1512,7 @@ server.listen(PORT, () => {
   const protocol = SIGNALING_TLS_CERT_PATH && SIGNALING_TLS_KEY_PATH ? "https" : "http";
   console.log(`Signaling server ${protocol}://localhost:${PORT} adresinde calisiyor.`);
   syncStoredGatewayStreams();
+  refreshGatewayCatalogEntriesQuietly();
 });
 
 // WebSocket, WebRTC tarafinin teklif/cvp/ICE mesajlarini tasimasi icin kullanilir.
@@ -1502,7 +1561,7 @@ wss.on("connection", (ws, req) => {
   });
   logEvent("ws-connected", { ip: maskedIp, clientId: clientId.slice(0, 8) });
 
-  ws.on("message", (raw) => {
+  ws.on("message", async (raw) => {
     let message;
     try {
       message = JSON.parse(raw.toString());
@@ -1525,6 +1584,9 @@ wss.on("connection", (ws, req) => {
           message: "join icin room alanı zorunlu.",
         });
         return;
+      }
+      if (!findCameraByStreamName(roomName)) {
+        await refreshGatewayCatalogEntriesQuietly();
       }
       if (!findCameraByStreamName(roomName)) {
         send(ws, {
